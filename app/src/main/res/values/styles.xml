@@ -1,0 +1,1 @@
+<resources><style name="Theme.GPSLandmensure" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">#087F5B</item><item name="android:navigationBarColor">#087F5B</item><item name="android:statusBarColor">#087F5B</item></style></resources>
