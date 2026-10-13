@@ -1,32 +1,42 @@
-# GPS Landmensure — melhorias da versão 2.3.2
+# GPS Landmensure
 
-Este documento apresenta as melhorias realizadas no GPS Landmensure durante o estágio, com foco na experiência de uso em campo, na organização dos levantamentos e na apresentação das informações.
+Aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. Este README apresenta as funções que já faziam parte do aplicativo e as melhorias incorporadas posteriormente durante o estágio.
 
-## Interface e experiência de uso
+## Funcionalidades que o aplicativo já possuía
 
-- Organização dos comandos em quatro grupos: **Coleta e GNSS**, **Mapa e geometria**, **Levantamentos** e **Exportar e imprimir**.
-- Atualização da identidade visual, com melhor hierarquia de títulos, cartões, campos e botões e layout adaptado a telas menores.
-- Substituição dos emojis por ícones vetoriais SVG consistentes e indicadores de estado mais discretos.
-- Inclusão dos temas claro e escuro para diferentes condições de uso.
-- Inclusão de um painel de **Definições** para escolher o modo padrão de coleta e o mapa inicial.
+- Exibição da posição GPS e coleta de pontos para um levantamento.
+- Visualização dos pontos em mapa e imagem de satélite.
+- Organização dos pontos em uma tabela com coordenadas e informações entre vértices.
+- Geração de polígono a partir dos pontos e cálculo de área e perímetro.
+- Salvamento e abertura de levantamentos.
+- Exportação de dados e geração do memorial do levantamento.
 
-## Coleta e organização dos pontos
+## Melhorias incorporadas depois
 
-- Salvamento automático do rascunho atual e recuperação ao reabrir o aplicativo.
+### Coleta e informações GNSS
+
+- Painel de posição em tempo real com coordenadas geográficas, UTM, acurácia estimada e estado da recepção.
+- Exibição de satélites visíveis e usados, além de HDOP e PDOP quando informados pelo aparelho.
+- Tela dedicada à consulta das constelações, frequências e bandas GNSS disponíveis.
+- Modo **Ponto ajustado**, com ocupação de 120 segundos, filtragem de leituras discrepantes e apresentação de indicadores estatísticos da coleta.
+- Identificação da acurácia do Android como estimativa, distinguindo-a dos indicadores calculados pelo modo Ponto ajustado.
+
+### Organização e proteção dos levantamentos
+
+- Separação dos comandos em quatro grupos: **Coleta e GNSS**, **Mapa e geometria**, **Levantamentos** e **Exportar e imprimir**.
+- Salvamento automático do rascunho e recuperação ao reabrir o aplicativo.
 - Edição dos nomes dos vértices, com atualização dos rótulos na tabela, no mapa e nos documentos gerados.
-- Preferências do usuário salvas localmente no aparelho.
+- Exportação e restauração de cópias de segurança em JSON.
+- Salvamento dos arquivos na pasta **Downloads/GPS Landmensure**, usando o armazenamento do Android.
 
-## Arquivos e proteção dos dados
+### Interface e experiência de uso
 
-- Inclusão de recursos para exportar e restaurar backups em JSON.
-- Atualização do salvamento de arquivos para a pasta **Downloads/GPS Landmensure**, usando o armazenamento atual do Android.
-- Preservação das opções de exportação e emissão já presentes no aplicativo.
+- Atualização da identidade visual, com hierarquia mais clara para títulos, cartões, campos e botões.
+- Substituição dos emojis por ícones vetoriais SVG e indicadores de estado mais discretos.
+- Inclusão dos temas claro e escuro e de um painel de **Definições** para escolher coleta padrão, mapa inicial e aparência.
+- Ajuste da área segura para respeitar as barras de status e navegação do Android.
+- Adaptação do layout à largura e à orientação da tela, incluindo celulares e telas maiores.
 
-## Clareza das informações
+## Objetivo das melhorias
 
-- Ajuste dos rótulos para identificar a acurácia do Android como uma estimativa, sem apresentá-la como garantia de precisão.
-- Inclusão de uma explicação sobre a interpretação dessa estimativa na interface.
-
-## Resultado
-
-As alterações priorizam uma navegação mais clara, acesso rápido às ações de campo e maior proteção contra perda acidental dos levantamentos, mantendo o propósito central do aplicativo: apoiar a coleta e a organização de pontos GNSS.
+As mudanças ampliam a clareza das informações GNSS, facilitam o acesso às ações de campo e ajudam a proteger os dados coletados, preservando a função principal do GPS Landmensure: apoiar a coleta, a visualização e a organização de pontos de levantamentos.
