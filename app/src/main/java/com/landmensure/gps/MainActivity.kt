@@ -15,6 +15,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.os.Handler
+import android.view.View
+import android.view.WindowInsets
+import android.graphics.Color
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.provider.MediaStore
@@ -136,7 +139,25 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         webView = WebView(this)
+        webView.setBackgroundColor(Color.rgb(27, 40, 49))
+        webView.setOnApplyWindowInsetsListener { view, insets ->
+            val top: Int
+            val bottom: Int
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val bars = insets.getInsets(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
+                top = bars.top
+                bottom = bars.bottom
+                view.setPadding(0, top, 0, bottom)
+                WindowInsets.CONSUMED
+            } else {
+                top = insets.systemWindowInsetTop
+                bottom = insets.systemWindowInsetBottom
+                view.setPadding(0, top, 0, bottom)
+                insets.consumeSystemWindowInsets()
+            }
+        }
         setContentView(webView)
+        webView.requestApplyInsets()
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
@@ -148,6 +169,22 @@ class MainActivity : Activity() {
     }
 
     inner class AndroidBridge {
+        @JavascriptInterface fun setDarkBars(dark: Boolean) { runOnUiThread {
+            val color = if (dark) Color.rgb(27, 40, 49) else Color.WHITE
+            webView.setBackgroundColor(color)
+            window.statusBarColor = color
+            window.navigationBarColor = color
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val mask = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                window.insetsController?.setSystemBarsAppearance(if (dark) 0 else mask, mask)
+            } else {
+                @Suppress("DEPRECATION")
+                window.decorView.systemUiVisibility = if (dark) 0 else
+                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            }
+        }}
+
         @JavascriptInterface fun startLiveLocation() { runOnUiThread { ensurePermissionAndStart() } }
 
         @JavascriptInterface fun startOccupation(seconds: Int) { runOnUiThread {
