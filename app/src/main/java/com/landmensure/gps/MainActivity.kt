@@ -20,6 +20,7 @@ import android.os.Handler
 import android.view.View
 import android.view.WindowInsets
 import android.graphics.Color
+import android.widget.LinearLayout
 import android.print.PrintAttributes
 import android.print.PrintManager
 import android.provider.MediaStore
@@ -32,6 +33,9 @@ import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var appRoot: LinearLayout
+    private lateinit var statusBarSpace: View
+    private lateinit var navigationBarSpace: View
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
     private val fileChooserRequestCode = 4102
     private lateinit var locationManager: LocationManager
@@ -143,26 +147,38 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        window.setDecorFitsSystemWindows(false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
         webView = WebView(this)
-        webView.setBackgroundColor(Color.rgb(27, 40, 49))
-        webView.setOnApplyWindowInsetsListener { view, insets ->
-            val top: Int
-            val bottom: Int
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val bars = insets.getInsets(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
-                top = bars.top
-                bottom = bars.bottom
-                view.setPadding(0, top, 0, bottom)
-                WindowInsets.CONSUMED
-            } else {
-                top = insets.systemWindowInsetTop
-                bottom = insets.systemWindowInsetBottom
-                view.setPadding(0, top, 0, bottom)
-                insets.consumeSystemWindowInsets()
-            }
+        webView.setBackgroundColor(Color.rgb(242, 245, 248))
+        statusBarSpace = View(this)
+        navigationBarSpace = View(this)
+        statusBarSpace.setBackgroundColor(Color.rgb(242, 245, 248))
+        navigationBarSpace.setBackgroundColor(Color.rgb(242, 245, 248))
+        appRoot = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(242, 245, 248))
         }
-        setContentView(webView)
-        webView.requestApplyInsets()
+        appRoot.addView(statusBarSpace, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0
+        ))
+        appRoot.addView(webView, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
+        ))
+        appRoot.addView(navigationBarSpace, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0
+        ))
+        setContentView(appRoot)
+        appRoot.setOnApplyWindowInsetsListener { _, insets ->
+            val safe = insets.getInsets(
+                WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars() or WindowInsets.Type.displayCutout()
+            )
+            statusBarSpace.layoutParams = statusBarSpace.layoutParams.apply { height = safe.top }
+            navigationBarSpace.layoutParams = navigationBarSpace.layoutParams.apply { height = safe.bottom }
+            WindowInsets.CONSUMED
+        }
+        appRoot.requestApplyInsets()
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
@@ -204,8 +220,11 @@ class MainActivity : Activity() {
 
     inner class AndroidBridge {
         @JavascriptInterface fun setDarkBars(dark: Boolean) { runOnUiThread {
-            val color = if (dark) Color.rgb(27, 40, 49) else Color.WHITE
+            val color = if (dark) Color.rgb(16, 24, 32) else Color.rgb(242, 245, 248)
             webView.setBackgroundColor(color)
+            appRoot.setBackgroundColor(color)
+            statusBarSpace.setBackgroundColor(color)
+            navigationBarSpace.setBackgroundColor(color)
             window.statusBarColor = color
             window.navigationBarColor = color
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

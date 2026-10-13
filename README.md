@@ -35,6 +35,7 @@ Aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. Este README 
 - Substituição dos emojis por ícones vetoriais SVG e indicadores de estado mais discretos.
 - Inclusão dos temas claro e escuro e de um painel de **Definições** para escolher coleta padrão, mapa inicial e aparência.
 - Ajuste da área segura para respeitar as barras de status e navegação do Android.
+- Reserva nativa das áreas superior e inferior do sistema para evitar que a barra do aplicativo fique sob os indicadores do Android.
 - Adaptação do layout à largura e à orientação da tela, incluindo celulares e telas maiores.
 - Barra superior com acesso às definições e navegação em abas para separar **GNSS** de **Memorial KML**.
 - Integração do módulo de cálculo de área e memorial por KML, com seleção de arquivos e impressão no Android.
