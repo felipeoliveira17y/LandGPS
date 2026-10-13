@@ -219,6 +219,16 @@ class MainActivity : Activity() {
     }
 
     inner class AndroidBridge {
+        @JavascriptInterface fun openExternal(url: String) { runOnUiThread {
+            try {
+                val uri = Uri.parse(url)
+                if (uri.scheme !in setOf("https", "http")) return@runOnUiThread
+                startActivity(Intent(Intent.ACTION_VIEW, uri))
+            } catch (_: Exception) {
+                Toast.makeText(this@MainActivity, "Não foi possível abrir este link.", Toast.LENGTH_SHORT).show()
+            }
+        }}
+
         @JavascriptInterface fun setDarkBars(dark: Boolean) { runOnUiThread {
             val color = if (dark) Color.rgb(16, 24, 32) else Color.rgb(242, 245, 248)
             webView.setBackgroundColor(color)

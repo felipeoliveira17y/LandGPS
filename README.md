@@ -41,6 +41,7 @@ Aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. Este README 
 - Integração do módulo de cálculo de área e memorial por KML, com seleção de arquivos e impressão no Android.
 - Centralização inicial do mapa na primeira posição GNSS válida recebida pelo aparelho.
 - Padronização visual do Memorial KML com a identidade do app e aumento de textos, campos e botões para facilitar o uso no celular.
+- Faixa de redes sociais e contato disponível também na tela GNSS, com abertura dos links no aplicativo adequado.
 
 ## Objetivo das melhorias
 
