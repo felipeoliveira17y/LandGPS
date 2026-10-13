@@ -17,6 +17,8 @@ O símbolo reúne um perímetro irregular de terreno, quatro vértices de levant
 - `landmensure-mark.svg`: símbolo quadrado para avatar, ícone e espaços reduzidos.
 - `landmensure-horizontal.svg`: assinatura para fundos claros.
 - `landmensure-horizontal-dark.svg`: assinatura para fundos escuros.
+- `landmensure-horizontal.png`: assinatura clara em PNG transparente, usada também nos materiais impressos do app.
+- `landmensure-icon-512.png`: exportação do símbolo em 512 × 512 px.
 
 Os SVG são os arquivos vetoriais de origem; podem ser redimensionados sem perda de nitidez. O ícone mantém o desenho dentro de uma margem de segurança para tolerar máscaras arredondadas. Para uso como ícone de loja, exporte também PNG de 512 × 512 px e confira o enquadramento nas máscaras do Android.
 
