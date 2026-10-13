@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landmensure | Calculadora de Área e Memorial Descritivo</title>
+    <meta name="description" content="Importe um KML, confira a área e o perímetro da propriedade e gere um memorial descritivo e croqui para impressão.">
+    <meta name="theme-color" content="#123d34">
+    <link rel="icon" href="file:///android_asset/memorial/assets/brand-mark-CTyrwmiA.svg" type="image/svg+xml">
+  <script>window.print=function(){if(window.Android&&typeof Android.printHtml==="function"){let html=document.documentElement.outerHTML.replaceAll('./assets/','file:///android_asset/memorial/assets/');Android.printHtml('Memorial_KML_Landmensure',html)}else window.alert('Impressão disponível no aplicativo Android.');};window.open=function(){let html='';return{document:{write(value){html+=value},close(){if(window.Android&&typeof Android.printHtml==="function")Android.printHtml('Memorial_KML_Landmensure',html);else window.print()}}};};</script>
+  <script type="module" crossorigin src="file:///android_asset/memorial/assets/index-BWIpz53m.js"></script>
+  <link rel="stylesheet" crossorigin href="file:///android_asset/memorial/assets/index-CyRxvwpL.css">
+</head>
+
+<body>
+    <main class="container">
+        <header class="hero">
+            <div class="hero-topbar">
+                <a class="brand" href="#inicio" aria-label="Landmensure, início">
+                    <img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%20role='img'%20aria-label='Landmensure'%3e%3crect%20width='64'%20height='64'%20rx='16'%20fill='%23123d34'/%3e%3cpath%20d='M11%2043%2023%2018l13%208%2017-8-11%2027-16%201Z'%20fill='none'%20stroke='%23d8eeb5'%20stroke-width='2.5'%20stroke-linejoin='round'/%3e%3cpath%20d='m23%2018%203%2028m10-20%206%2019M11%2043l25-17'%20fill='none'%20stroke='%2382b79b'%20stroke-width='1'%20opacity='.7'/%3e%3ccircle%20cx='23'%20cy='18'%20r='3.5'%20fill='%23e7bd78'/%3e%3ccircle%20cx='53'%20cy='18'%20r='3.5'%20fill='%23e7bd78'/%3e%3ccircle%20cx='42'%20cy='45'%20r='3.5'%20fill='%23e7bd78'/%3e%3c/svg%3e" alt="" width="48" height="48">
+                    <span class="brand-name">LAND<span>MEN</span>SURE<small>Área e memorial descritivo</small></span>
+                </a>
+                <label class="theme-switch-wrapper">
+                    <input id="themeCheckbox" type="checkbox" aria-label="Ativar tema claro" />
+                    <span class="theme-switch-track" aria-hidden="true"><span class="theme-switch-thumb"></span></span>
+                    <span id="themeModeLabel" class="theme-switch-label">Modo claro</span>
+                </label>
+            </div>
+            <div class="hero-content" id="inicio">
+                <div class="hero-copy">
+                    <h1>Cálculo de área e memorial descritivo</h1>
+                    <p class="hero-description">Importe um arquivo KML para visualizar o perímetro, conferir as medidas e gerar os documentos da propriedade.</p>
+                </div>
+            </div>
+        </header>
+
+        <section class="workspace-card setup-card" aria-labelledby="dadosTitulo">
+            <div class="section-heading">
+                <div class="section-heading-main"><span class="section-index">01</span><div><h2 id="dadosTitulo">Dados da propriedade</h2></div></div>
+                <p>Informações que constarão no memorial.</p>
+            </div>
+            <div class="setup-layout">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="propriedade">Propriedade:</label>
+                        <input type="text" id="propriedade" placeholder="Ex: Fazenda Boa Esperança">
+                    </div>
+                    <div class="form-group">
+                        <label for="proprietario">Proprietário:</label>
+                        <input type="text" id="proprietario" placeholder="Ex: João da Silva">
+                    </div>
+                    <div class="form-group">
+                        <label for="endereco">Endereço:</label>
+                        <input type="text" id="endereco" placeholder="Ex: Zona Rural">
+                    </div>
+                    <div class="form-group">
+                        <label for="matricula">Matrícula:</label>
+                        <input type="text" id="matricula" placeholder="Ex: 1234">
+                    </div>
+                    <div class="form-group">
+                        <label for="comarca">Comarca:</label>
+                        <input type="text" id="comarca" placeholder="Ex: Porteiras - CE">
+                    </div>
+                    <div class="form-group">
+                        <label for="profissional">Profissional:</label>
+                        <input type="text" id="profissional" placeholder="Ex: Engenheiro/Técnico">
+                    </div>
+                    <div class="form-group">
+                        <label for="crea">CREA:</label>
+                        <input type="text" id="crea" placeholder="Ex: CREA 000000">
+                    </div>
+                </div>
+
+                <aside class="action-panel" aria-label="Ações do projeto">
+                    <div class="action-panel-top">
+                        <h3>Arquivo KML</h3>
+                        <p>Selecione um arquivo com um único polígono. Depois confira as medidas e gere o memorial.</p>
+                    </div>
+                    <div class="actions">
+                        <input type="file" id="fileInput" accept=".kml,application/vnd.google-earth.kml+xml" class="visually-hidden" aria-label="Selecionar arquivo KML">
+
+                        <button id="btnAdicionarKml" class="btn-file-upload" type="button">
+                            <svg aria-hidden="true" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" fill="none">
+                                <path d="M13.5 3H8C6.34 3 5 4.34 5 6v12c0 1.66 1.34 3 3 3h3M13.5 3 19 8.625M13.5 3v4.625c0 .55.45 1 1 1H19v3.19M17 15v6m-3-3h6"
+                                    stroke-linejoin="round" stroke-linecap="round"></path>
+                            </svg>
+                            Selecionar KML
+                        </button>
+
+                        <button id="btnGerar" class="btn btn-success" type="button" disabled>
+                            Gerar memorial
+                        </button>
+
+                        <button id="btnCroqui" class="btn btn-info" type="button" disabled>
+                            Imprimir croqui
+                        </button>
+
+                        <button id="btnImprMemorial" class="btn btn-primary" type="button" disabled>
+                            Imprimir memorial
+                        </button>
+                    </div>
+                    <p id="fileStatus" class="file-status" role="status" aria-live="polite">Nenhum arquivo selecionado.</p>
+                    <p class="action-footnote">Formato .kml · até 10 MB</p>
+                </aside>
+            </div>
+        </section>
+
+        <section class="workspace-card map-card" aria-labelledby="mapaTitulo">
+            <div class="section-heading">
+                <div class="section-heading-main"><span class="section-index">02</span><div><h2 id="mapaTitulo">Perímetro no mapa</h2></div></div>
+                <p class="section-aside">Imagem de satélite</p>
+            </div>
+            <div class="map-frame">
+                <div id="map" role="region" aria-label="Mapa da propriedade"></div>
+            </div>
+            <div class="metrics-strip" aria-label="Resumo da propriedade">
+                <div class="metric"><div><span class="metric-label">Área total</span><strong id="metricArea">—</strong></div></div>
+                <div class="metric"><div><span class="metric-label">Perímetro</span><strong id="metricPerimetro">—</strong></div></div>
+                <div class="metric"><div><span class="metric-label">Vértices</span><strong id="metricVertices">—</strong></div></div>
+            </div>
+        </section>
+
+        <section class="workspace-card memorial-card" aria-labelledby="memorialTitulo">
+            <div class="section-heading">
+                <div class="section-heading-main"><span class="section-index">03</span><div><h2 id="memorialTitulo">Memorial descritivo</h2></div></div>
+                <p>Confira os dados antes de imprimir.</p>
+            </div>
+            <div id="memorialOutput" class="output-section is-status" role="status" aria-live="polite">Aguardando o carregamento do arquivo KML...</div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="footer-inner">
+            <div class="footer-brand"><img src="data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%20role='img'%20aria-label='Landmensure'%3e%3crect%20width='64'%20height='64'%20rx='16'%20fill='%23123d34'/%3e%3cpath%20d='M11%2043%2023%2018l13%208%2017-8-11%2027-16%201Z'%20fill='none'%20stroke='%23d8eeb5'%20stroke-width='2.5'%20stroke-linejoin='round'/%3e%3cpath%20d='m23%2018%203%2028m10-20%206%2019M11%2043l25-17'%20fill='none'%20stroke='%2382b79b'%20stroke-width='1'%20opacity='.7'/%3e%3ccircle%20cx='23'%20cy='18'%20r='3.5'%20fill='%23e7bd78'/%3e%3ccircle%20cx='53'%20cy='18'%20r='3.5'%20fill='%23e7bd78'/%3e%3ccircle%20cx='42'%20cy='45'%20r='3.5'%20fill='%23e7bd78'/%3e%3c/svg%3e" alt="" width="36" height="36"><span>Landmensure<small>Cálculo de área e memorial</small></span></div>
+            <nav class="footer-links" aria-label="Redes sociais e contato">
+                <a class="social-link instagram" href="https://www.instagram.com/landmensure/" target="_blank" rel="noopener noreferrer" aria-label="Instagram do Landmensure (abre em nova aba)">
+                    <svg class="icons-social-media" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2.5" y="2.5" width="19" height="19" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.5" cy="6.7" r="1" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <span>Instagram</span>
+                </a>
+                <a class="social-link github" href="https://github.com/felipeoliveira17y" target="_blank" rel="noopener noreferrer" aria-label="GitHub de Felipe Oliveira (abre em nova aba)">
+                    <svg class="icons-social-media" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 4.96c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+                    </svg>
+                    <span>GitHub</span>
+                </a>
+                <a class="social-link whatsapp" href="https://wa.me/+558881197489" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp do Landmensure (abre em nova aba)">
+                    <svg class="icons-social-media" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20.4 11.6a8.4 8.4 0 0 1-12.3 7.5L3 20.5l1.5-4.9a8.4 8.4 0 1 1 15.9-4Z"/>
+                        <path d="M8.2 7.9c.2-.3.5-.4.8-.2l1 .7c.3.2.4.5.2.8l-.5 1c.8 1.3 1.8 2.3 3.1 3.1l1-.5c.3-.2.6-.1.8.2l.7 1c.2.3.1.6-.2.8-.5.4-1 .6-1.7.4a9.3 9.3 0 0 1-5.8-5.8c-.2-.7 0-1.2.6-1.5Z"/>
+                    </svg>
+                    <span>WhatsApp</span>
+                </a>
+            </nav>
+        </div>
+    </footer>
+
+
+</body>
+
+</html>

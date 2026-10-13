@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Landmensure">
+  <rect width="64" height="64" rx="16" fill="#123d34"/>
+  <path d="M11 43 23 18l13 8 17-8-11 27-16 1Z" fill="none" stroke="#d8eeb5" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="m23 18 3 28m10-20 6 19M11 43l25-17" fill="none" stroke="#82b79b" stroke-width="1" opacity=".7"/>
+  <circle cx="23" cy="18" r="3.5" fill="#e7bd78"/>
+  <circle cx="53" cy="18" r="3.5" fill="#e7bd78"/>
+  <circle cx="42" cy="45" r="3.5" fill="#e7bd78"/>
+</svg>

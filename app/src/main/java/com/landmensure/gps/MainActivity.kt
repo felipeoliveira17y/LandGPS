@@ -5,12 +5,14 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.location.GnssStatus
 import android.location.OnNmeaMessageListener
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
@@ -23,12 +25,15 @@ import android.print.PrintManager
 import android.provider.MediaStore
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.ValueCallback
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private val fileChooserRequestCode = 4102
     private lateinit var locationManager: LocationManager
     private val locationRequestCode = 1001
     private var pendingStart = false
@@ -162,8 +167,37 @@ class MainActivity : Activity() {
         webView.settings.domStorageEnabled = true
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
+        webView.settings.allowFileAccessFromFileURLs = true
         webView.webViewClient = WebViewClient()
-        webView.webChromeClient = WebChromeClient()
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(
+                view: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = filePathCallback
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(Intent.EXTRA_MIME_TYPES, arrayOf(
+                        "application/vnd.google-earth.kml+xml",
+                        "application/vnd.google-earth.kmz",
+                        "application/xml",
+                        "text/xml",
+                        "application/octet-stream"
+                    ))
+                }
+                return try {
+                    startActivityForResult(intent, fileChooserRequestCode)
+                    true
+                } catch (_: Exception) {
+                    fileChooserCallback = null
+                    filePathCallback?.onReceiveValue(null)
+                    false
+                }
+            }
+        }
         webView.addJavascriptInterface(AndroidBridge(), "Android")
         webView.loadUrl("file:///android_asset/index.html")
     }
@@ -353,4 +387,14 @@ class MainActivity : Activity() {
     override fun onResume() { super.onResume(); if (::locationManager.isInitialized && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED) startLiveTracking() }
     override fun onPause() { super.onPause(); if (::locationManager.isInitialized && tracking) { runCatching{locationManager.removeUpdates(liveListener)}; runCatching{locationManager.unregisterGnssStatusCallback(gnssCallback)}; runCatching{locationManager.removeNmeaListener(nmeaListener)}; tracking=false } }
     @Deprecated("Deprecated in Java") override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == fileChooserRequestCode) {
+            val result = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
+            fileChooserCallback?.onReceiveValue(result)
+            fileChooserCallback = null
+        }
+    }
 }
