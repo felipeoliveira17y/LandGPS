@@ -221,9 +221,25 @@ class MainActivity : Activity() {
     inner class AndroidBridge {
         @JavascriptInterface fun openExternal(url: String) { runOnUiThread {
             try {
-                val uri = Uri.parse(url)
-                if (uri.scheme !in setOf("https", "http")) return@runOnUiThread
-                startActivity(Intent(Intent.ACTION_VIEW, uri))
+                val cleanUrl = url.trim()
+                val parsed = Uri.parse(
+                    if (cleanUrl.startsWith("wa.me/", ignoreCase = true)) "https://$cleanUrl" else cleanUrl
+                )
+                if (parsed.scheme !in setOf("https", "http")) return@runOnUiThread
+
+                // wa.me expects the international number as digits only. Normalize a leading +
+                // so links copied as wa.me/+55... still open the intended WhatsApp conversation.
+                val target = if (parsed.host.equals("wa.me", ignoreCase = true)) {
+                    val phone = parsed.pathSegments.firstOrNull().orEmpty().filter(Char::isDigit)
+                    if (phone.isBlank()) return@runOnUiThread
+                    parsed.buildUpon()
+                        .scheme("https")
+                        .encodedAuthority("wa.me")
+                        .path("/$phone")
+                        .build()
+                } else parsed
+
+                startActivity(Intent(Intent.ACTION_VIEW, target))
             } catch (_: Exception) {
                 Toast.makeText(this@MainActivity, "Não foi possível abrir este link.", Toast.LENGTH_SHORT).show()
             }
