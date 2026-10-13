@@ -33,7 +33,7 @@ jobs:
           gradle-version: '8.11.1'
           cache-provider: basic
 
-      - name: Compilar APK
+      - name: Compilar APK de depuração
         run: gradle --no-daemon assembleDebug
 
       - name: Disponibilizar APK para download
