@@ -139,7 +139,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         webView = WebView(this)
-        webView.setInitialScale(90)
+        webView.setInitialScale(100)
         webView.setBackgroundColor(Color.rgb(27, 40, 49))
         webView.setOnApplyWindowInsetsListener { view, insets ->
             val top: Int
