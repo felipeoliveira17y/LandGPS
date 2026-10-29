@@ -1,0 +1,196 @@
+CONTEXTO DO PROJETO — GPS LANDMENSURE
+Documento de passagem para o Gemini
+Data: 29/10/2026
+
+OBJETIVO
+
+Estamos planejando acrescentar ao GPS Landmensure um modelo Freemium com contas de usuário e assinatura mensal/recorrente. O aplicativo é Android e, nesta primeira fase, será distribuído diretamente por APK. Depois de finalizar e validar o app, o proprietário pretende avaliar a distribuição pela Google Play Store.
+
+A função original do aplicativo deve continuar funcionando: levantamento de campo com GPS/GNSS, coleta e organização de pontos, mapa, cálculo de área/perímetro e geração de memorial.
+
+ESTADO ATUAL — IMPORTANTE
+
+Ainda NÃO implementamos login, telas de conta, integração de cobrança, bloqueio de recursos Pro, backend ou webhook no aplicativo. Até agora, estamos planejando a arquitetura e configurando contas/serviços manualmente.
+
+O que o usuário informou já ter feito:
+1. Criou no Stripe um único produto Pro.
+2. Nesse produto criou três preços recorrentes: semanal, mensal e anual.
+3. No Supabase, o provedor Email aparece como Enabled.
+4. O usuário informou que enviou/executou o SQL de estrutura do banco. Ainda não confirmou que a execução terminou sem erros ou que as tabelas aparecem no Table Editor.
+5. As configurações de Site URL / Redirect URLs do Supabase estão abertas/foram consultadas, mas não devem ser preenchidas aleatoriamente. O app precisa ter deep link Android configurado antes de escolher o retorno de confirmação de e-mail.
+
+IDs dos preços Stripe fornecidos pelo usuário:
+- Semanal: price_1UVxbXPQRaLPLjFe25qf3aaT
+- Mensal: price_1UVxbXPQRaLPLjFeSMYJg5sB
+- Anual: price_1UVxbXPQRaLPLjFeCaJeWz0T
+
+Esses IDs são identificadores de preços, não são chaves secretas. A chave secreta Stripe, signing secret do webhook, senha do banco e chave secreta Supabase nunca devem ser colocados no APK, commitados no GitHub ou enviados em chat.
+
+ARQUITETURA PLANEJADA
+
+- Supabase Auth: cadastro, login e gerenciamento da sessão por e-mail.
+- Supabase Postgres: planos e estado das assinaturas, com Row Level Security (RLS).
+- Supabase Edge Functions (backend):
+  a) create-checkout — exige usuário autenticado, permite apenas os três Price IDs aprovados, cria Checkout Session no Stripe e retorna URL.
+  b) stripe-webhook — valida assinatura criptográfica do webhook Stripe e atualiza assinatura no banco.
+- Stripe: Checkout e pagamentos recorrentes.
+- Android APK: tela de cadastro/login, abertura segura do Stripe Checkout, retorno por deep link e consulta ao backend para liberar recursos Pro.
+
+O app não deve decidir sozinho se a assinatura foi paga. O webhook validado e o backend/Supabase devem ser a fonte confiável do estado Premium.
+
+SQL PROPOSTO ANTERIORMENTE
+
+Foi enviado na conversa um SQL que cria:
+- public.plans com ids `free` e `pro`.
+- public.subscriptions com user_id referenciando auth.users, plan_id, provider, provider_subscription_id, status, datas de período e cancel_at_period_end.
+- RLS habilitado; usuários autenticados podem consultar apenas a própria assinatura; usuários não podem escrever status de assinatura diretamente.
+- função public.has_active_pro() para consultar se o usuário tem assinatura `active` ou `trialing` vigente.
+
+O SQL foi enviado no chat, não se sabe se foi guardado como migration no repositório. Antes de repetir comandos, pedir ao usuário para conferir Supabase → Table Editor e confirmar se `plans` e `subscriptions` aparecem e se o Editor de SQL terminou sem erro. Não duplicar/alterar o esquema até confirmar estado atual.
+
+ROTEIRO ORDENADO A SEGUIR
+
+Etapa 1 — Confirmar banco e Auth
+- Conferir no Supabase Table Editor se existem `plans` e `subscriptions`.
+- Conferir se `plans` contém `free` e `pro`.
+- Confirmar que o provedor Email está habilitado.
+- Se houve erro, corrigir antes de avançar.
+
+Etapa 2 — Definir confirmação de e-mail e deep link
+- Como será APK nativo, links de confirmação e recuperação devem poder reabrir o app.
+- O esquema de deep link precisa ser escolhido e implementado no Android Manifest/Activity.
+- Só depois adicionar a URI correspondente em Authentication → URL Configuration → Redirect URLs.
+- Não inventar endereço web nem configurar redirect aleatório.
+- Definir e testar captura do callback e tratamento de tokens/PKCE conforme biblioteca escolhida.
+
+Etapa 3 — Criar backend seguro
+- Criar Edge Function create-checkout que valida JWT/sessão Supabase e aceita somente os três Price IDs listados.
+- Criar Edge Function stripe-webhook, validar assinatura Stripe a partir do corpo bruto e lidar com eventos idempotentemente.
+- Guardar STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET e demais segredos como Supabase Function Secrets.
+- Não usar secret keys no Android, HTML, APK, Git, README ou logs.
+
+Etapa 4 — Configurar e testar Stripe
+- Primeiro usar modo de teste Stripe e chaves `sk_test_` / produtos e preços do ambiente de teste correspondente.
+- Configurar webhook para eventos relevantes de Checkout e assinatura (checkout concluído, assinatura criada/atualizada/cancelada e faturas pagas/recusadas).
+- Testar Checkout, webhook, ativação e expiração/cancelamento.
+- Não mudar para modo Live até os testes completos.
+
+Etapa 5 — Implementar telas de conta no app
+- Cadastro, login, confirmação, recuperar senha, logout e persistência/renovação de sessão.
+- Interface consistente com a identidade visual Landmensure.
+- Solicitar somente dados necessários; adicionar informações de privacidade e exclusão de conta na etapa apropriada.
+
+Etapa 6 — Integrar assinatura e gating
+- Mostrar semanal/mensal/anual com preços reais que ainda precisam ser confirmados.
+- Chamar create-checkout; abrir URL de pagamento; tratar retorno ao app.
+- Consultar estado no backend e liberar features Pro somente após confirmação do webhook.
+- Definir explicitamente quais funcionalidades ficam Free e quais ficam Pro antes de bloquear qualquer recurso.
+
+Etapa 7 — Testar cenários completos
+- Cadastro/login/logout/recuperação.
+- Compra em teste, renovação, falha de pagamento, cancelamento, vencimento, reinstalação e login em outro aparelho.
+- Conferir políticas RLS e comportamento offline.
+- Não declarar testado em aparelho físico sem validação real.
+
+Etapa 8 — Preparar distribuição
+- Para agora, build APK para beta/instalação direta.
+- Mais tarde revisar regras vigentes da Play Store e adaptar faturamento e release.
+- Atenção: APK debug assinado com chaves diferentes pode conflitar com instalação anterior; orientar backup dos dados antes de desinstalar/reinstalar.
+
+ESTRATÉGIA DE PLANO DISCUTIDA (AINDA NÃO IMPLEMENTADA)
+
+Plano Free, sugestão: posição e coleta GNSS básica, mapa, geometria básica, rascunho automático, edição de vértices, backup JSON e leitura KML.
+Plano Pro, sugestão: Ponto Ajustado 120 s, dados avançados GNSS, pontos/projetos sem limite, memorial e exportação/impressão profissional.
+
+Os limites exatos do Free, preços finais, trial de 7 dias e regras de cancelamento ainda NÃO foram decididos nem implementados. Não bloquear funções antes da decisão do proprietário. Preços mencionados anteriormente (semanais/mensais/anuais) eram sugestões; confirmar no Stripe os valores de cada Price.
+
+PREFERÊNCIAS DO PROPRIETÁRIO
+
+- Comunicação em português brasileiro, passo a passo e sem saltar etapas.
+- O usuário pediu explicitamente para organizar o trabalho e seguir etapas em sequência, evitando configurações aleatórias.
+- Manter o aplicativo de levantamento funcional e preservar sua finalidade principal.
+- O computador do usuário é muito limitado; compilações devem priorizar GitHub Actions/ambiente remoto quando possível.
+- Distinguir claramente planejamento de implementação concluída.
+- Nunca solicitar ou aceitar que o usuário compartilhe chaves secretas ou senhas.
+
+PRÓXIMA AÇÃO RECOMENDADA
+
+Continuar somente pela Etapa 1: pedir ao usuário para verificar se as tabelas `plans` e `subscriptions` aparecem em Table Editor e se há as linhas `free`/`pro`. Se aparecerem e o SQL não deu erro, registrar etapa 1 como concluída e avançar para planejar o deep link da Etapa 2. Não criar código de pagamento ainda sem confirmar projeto/backend e sem especificação de redirect.
+
+FIM DO CONTEXTO
+11. COMO O APLICATIVO FOI CONSTRUÍDO — VISÃO TÉCNICA
+
+Tecnologias e linguagens confirmadas no código:
+- Kotlin: camada Android nativa em `MainActivity.kt`.
+- HTML, CSS e JavaScript: tela principal GNSS carregada dentro de uma Android WebView a partir de `app/src/main/assets/index.html`.
+- Módulo Memorial KML: interface web local empacotada em `app/src/main/assets/memorial/`, com HTML, CSS e JavaScript compilado e recursos Leaflet para mapa. Os nomes de bundles indicam frontend empacotado; não atribuir com certeza um framework de origem sem inspecionar os fontes de desenvolvimento.
+- Gradle Kotlin DSL: arquivos `build.gradle.kts` configuram Android/Kotlin e compilação.
+- Android Manifest declara permissões de GPS/localização e internet e a Activity principal.
+
+Estrutura simplificada do repositório:
+
+LandGPS_deploy/
+  app/
+    build.gradle.kts                 configuração do módulo Android
+    src/main/
+      AndroidManifest.xml            app, Activity e permissões
+      java/com/landmensure/gps/
+        MainActivity.kt               camada Android nativa e ponte com interface
+      assets/
+        index.html                    interface GNSS principal (HTML/CSS/JS)
+        index_original.html           cópia/base anterior da tela
+        logo_landmensure*.png         identidade visual usada na interface
+        memorial/
+          index.html                  entrada do módulo Memorial KML
+          assets/                     bundles web, estilos, mapas e marca
+      res/
+        mipmap-*/                     ícones por densidade Android
+        values/styles.xml             tema Android
+        xml/file_paths.xml            configuração de compartilhamento/arquivos
+  brand/                              arquivos exportados da marca
+  .github/workflows/build-apk.yml     compilação automática APK
+  README.md                           documentação das funções e melhorias
+  GPS_Landmensure_v13_Android14_plus_improved.zip pacote-fonte distribuído
+
+Arquitetura da aplicação atual:
+- A Activity Android cria uma WebView e carrega a tela principal empacotada localmente (`file:///android_asset/index.html`).
+- O HTML/CSS/JavaScript implementa layout, botões, cartões, abas, tabela e interações da tela.
+- A ponte JavaScript chamada `Android` permite que a página solicite operações nativas.
+- Kotlin usa `LocationManager`, callbacks GNSS e NMEA do Android para receber posição, satélites e dados disponíveis do equipamento. Em seguida envia atualizações à interface com `evaluateJavascript`/funções receptoras JavaScript.
+- O app pede permissões de localização em tempo de execução, acompanha GPS enquanto a Activity está ativa e encaminha solicitações de salvar arquivos, impressão, links externos e seleção de arquivos para funções Android.
+- A coleta de ocupação mantém amostras e devolve resultado/indicadores para a tela. Poucas amostras válidas geram o aviso de que é necessário tentar em área aberta.
+- A tela Memorial KML é outro módulo web empacotado no APK, apresentado numa aba/iframe na navegação superior.
+- Isso é uma arquitetura híbrida: interface web local dentro de contêiner Android nativo; não é um site remoto que carrega a interface pela internet. O mapa e outros recursos externos podem precisar de internet.
+
+Modelagem funcional dos dados (conceitual, não esquema completo de todas as funções):
+- Levantamento/Projeto: nome, responsável/cliente e conjunto de vértices.
+- Vértice/Ponto: posição capturada, latitude/longitude, coordenadas UTM, acurácia/indicadores disponíveis e rótulo editável. A ordem dos pontos define a geometria do polígono.
+- Geometria: pontos ordenados formam polígono; a aplicação calcula área e perímetro e apresenta distâncias/informações de cada trecho.
+- Memorial KML: arquivo KML de entrada contém geometria a visualizar/analisar; módulo mostra mapa, dados de área/perímetro e memorial descritivo.
+- Persistência existente do levantamento funciona no dispositivo/arquivos exportados; ainda não há sincronização em nuvem nem associação de projetos a contas online.
+- Modelo Supabase proposto para Freemium: `auth.users` identifica a conta; `plans` cataloga Free e Pro; `subscriptions` liga usuário, plano, provedor, estado e período. Essa camada futura de conta/assinatura é separada do modelo local de levantamentos e não foi ligada ao aplicativo.
+
+COMO O DESENVOLVIMENTO FOI FEITO ATÉ AGORA
+
+1. O usuário forneceu o projeto fonte Android v13 e um APK de referência/instalação; o trabalho subsequente foi feito no repositório `LandGPS`.
+2. O repositório passou a conter código Android, assets web, arquivos de configuração Gradle e workflow GitHub Actions.
+3. A interface foi refinada progressivamente com base nas solicitações e capturas enviadas: grupos de botões, Definições, temas, abas e adaptações ao celular.
+4. Foram feitos ajustes na integração WebView/Android para GNSS, safe areas, armazenamento, impressão, seleção de arquivos e links de contato.
+5. O módulo Memorial KML foi integrado como tela web local separada e harmonizado visualmente com GNSS.
+6. A identidade visual vetorial foi desenvolvida/exportada e depois aplicada ao cabeçalho, ao ícone Android, ao Memorial e ao pacote-fonte.
+7. O código foi enviado para GitHub `main`; o GitHub Actions executa Gradle em ambiente hospedado e publica APK debug como artifact. Assim, o usuário pode obter builds sem compilar no computador pessoal limitado.
+8. A última build registrada (workflow run 38450705210) terminou com sucesso depois da integração da marca. Isso comprova que o build terminou; não prova validação funcional completa em aparelho.
+9. Iniciou-se planejamento de monetização Freemium: um produto Stripe `Landmensure Pro` com três Price IDs e Supabase Auth/DB. A integração ainda não começou no app e o usuário solicitou seguir etapas ordenadas.
+
+PONTOS DE IMPLEMENTAÇÃO FUTURA (NÃO CONFUNDIR COM O QUE JÁ EXISTE)
+
+- Incluir SDK/cliente Supabase apropriado à arquitetura atual (Kotlin nativo, JavaScript na WebView, ou uma divisão deliberada). Decidir com base no armazenamento seguro de sessão e deep links; não colocar segredo no cliente.
+- Criar Manifest intent-filter e roteamento Android para callback de confirmação/reset e retorno do Checkout.
+- Implementar telas de conta e fluxo de sessão, incluindo persistência segura, logout, expiração e recuperação.
+- Criar/deployar Edge Functions, segredos, Stripe Checkout e webhook validado/idempotente.
+- Confirmar que RLS e a função has_active_pro são adequadas. Nunca confiar em `plan_id`, preço ou status enviado pelo próprio app.
+- Definir preços reais, recursos Free vs. Pro, limites, trial e regras offline antes de fazer gating.
+- Considerar armazenamento local/backup de levantamentos existente e explicar como contas/sincronização futura afetariam os dados dos usuários.
+- Atualizar versão Gradle/versionCode somente quando houver decisão de release; a versão de código conhecida é 2.3.2-android14plus, versionCode 15.
+
+FIM DO DOCUMENTO DE PASSAGEM

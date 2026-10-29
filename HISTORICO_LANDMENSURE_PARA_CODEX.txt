@@ -1,0 +1,164 @@
+PASSAGEM DE CONTEXTO — GPS LANDMENSURE
+Documento para continuar o trabalho em outra conta do Codex
+
+Data deste resumo: 29/10/2026
+Idioma de trabalho preferido: português (Brasil)
+
+1. OBJETIVO DO PROJETO
+
+O GPS Landmensure é um aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. A função principal deve ser preservada: coletar, visualizar, organizar e exportar pontos de um levantamento, além de calcular área, perímetro e memorial. O usuário deseja evoluir aparência e facilidade de uso sem comprometer a coleta GNSS nem os recursos existentes.
+
+2. REPOSITÓRIO E ARQUIVOS PRINCIPAIS
+
+Repositório GitHub: https://github.com/felipeoliveira17y/LandGPS
+Pasta de trabalho usada anteriormente: C:\Users\Nome\Downloads\LandGPS\LandGPS_deploy
+Branch principal: main
+Último commit conhecido: dc8cefb — “Apply Landmensure logo across app”
+
+Arquivos e pastas importantes:
+- app/src/main/assets/index.html — interface principal GNSS e navegação.
+- app/src/main/assets/memorial/ — módulo Memorial KML integrado.
+- app/src/main/java/com/landmensure/gps/MainActivity.kt — Activity Android, WebView, permissões, localização, integração com recursos Android e tratamento de links.
+- app/src/main/res/mipmap-*/ — ícones do aplicativo em diferentes densidades.
+- app/build.gradle.kts — configuração Android e versão do app.
+- .github/workflows/build-apk.yml — compilação automática do APK via GitHub Actions.
+- README.md — descrição de funcionalidades originais e melhorias implementadas.
+- GPS_Landmensure_v13_Android14_plus_improved.zip — pacote-fonte atualizado, sincronizado com assets e ícones no último commit conhecido.
+- brand/ — versões e documentação da identidade visual.
+
+Antes de continuar, conferir `git status`, branch e último commit. O estado da pasta pode ter mudado depois deste resumo.
+
+3. BASE ORIGINAL DO APLICATIVO
+
+O app original já oferecia:
+- Exibição da posição GPS e coleta de pontos.
+- Visualização dos pontos em mapa e imagem de satélite.
+- Tabela com coordenadas e informações entre vértices.
+- Criação de polígono e cálculo de área e perímetro.
+- Salvamento e abertura de levantamentos.
+- Exportação de dados e geração de memorial.
+
+4. EVOLUÇÃO IMPLEMENTADA NO CÓDIGO
+
+Coleta e informações GNSS:
+- Painel em tempo real com latitude/longitude, UTM, acurácia estimada e estado da recepção.
+- Exibição de satélites visíveis e usados, HDOP e PDOP quando informados pelo dispositivo.
+- Tela para consultar constelações, frequências e bandas GNSS disponíveis.
+- Modo “Ponto ajustado”: ocupação de 120 segundos, filtragem de leituras discrepantes e indicadores estatísticos.
+- Texto explicativo diferencia a acurácia estimada pelo Android dos indicadores calculados no modo ajustado.
+
+Gestão dos levantamentos:
+- Ações agrupadas por finalidade: Coleta e GNSS, Mapa e geometria, Levantamentos, Exportar e imprimir.
+- Rascunho automático e recuperação ao reabrir o app.
+- Edição dos nomes dos vértices, com rótulos refletidos na tabela, mapa e documentos.
+- Backup JSON, restauração e arquivos salvos em Downloads/GPS Landmensure via armazenamento Android.
+
+Interface e navegação:
+- Identidade visual atualizada, cartões e hierarquia de informação mais claros.
+- Ícones SVG substituíram os emojis.
+- Temas claro e escuro e painel Definições, incluindo preferências de aparência, coleta e mapa.
+- Ajustes de área segura e barras de sistema do Android para evitar que cabeçalho/controles fiquem sob a barra de status.
+- Layout responsivo à largura e orientação do dispositivo.
+- Tentativas anteriores de diminuir escala deixaram a tela pequena; a escala normal foi restaurada e foi feito ajuste responsivo. Evitar voltar a aplicar zoom global sem verificar a interface.
+- Barra superior e abas “GNSS” e “Memorial KML”.
+
+Memorial KML:
+- Módulo de área e memorial integrado na aba própria.
+- Seleção/abertura de KML e impressão no Android.
+- Ajustes de tamanho de textos, campos e botões para facilitar uso em celular.
+- Identidade visual harmonizada com a tela GNSS.
+
+Mapa e contato:
+- Centralização inicial do mapa na primeira posição GNSS válida recebida.
+- Links Instagram, GitHub e WhatsApp na tela GNSS e no Memorial KML, em estilo visual correspondente.
+- WhatsApp: telefone exibido como +55 88 8119-7489 e link solicitado `wa.me/+558881197489`. Houve correção de tratamento de link para Android para evitar falha de abertura.
+
+Identidade visual:
+- Foi criada logo minimalista: marca verde escura com limite de terreno, vértices dourados e referência visual GNSS.
+- Última integração aplicada no commit dc8cefb: ícone do app, cabeçalho da tela GNSS, logo usada em documentos e marca do Memorial KML.
+- Arquivos exportados em `brand/`; o PNG da marca no app está em `app/src/main/assets/logo_landmensure_mark.png`.
+
+Distribuição:
+- GitHub Actions compila o APK debug quando há push na branch main e publica artefato para download.
+- No início, houve erro “No event triggers defined in on” por workflow incompleto; workflow foi corrigido/substituído por `.github/workflows/build-apk.yml`.
+
+5. VERSÃO E COMPATIBILIDADE (METADADOS DO PROJETO)
+
+Na última inspeção conhecida de app/build.gradle.kts:
+- applicationId: com.landmensure.gps
+- versionCode: 15
+- versionName: 2.3.2-android14plus
+- minSdk: 34 (Android 14)
+- targetSdk/compileSdk: 36
+- Java/Kotlin JVM: 17
+
+Importante: os marcos 2.3.3, 2.3.4, 2.4.0, 2.5.0 e 2.5.1 citados numa resposta anterior eram uma organização retrospectiva sugerida para apresentar a evolução. NÃO são versões oficiais registradas no Gradle, nem tags de releases. A única versão declarada no código no último check era 2.3.2-android14plus (versionCode 15). Se for necessário alterar versionamento real, atualizar Gradle de modo coerente e explicar a alteração; não apresentar números retrospectivos como releases publicados.
+
+6. ÚLTIMO APK CONHECIDO
+
+Após integrar a logo, foi criado o commit dc8cefb e enviado para main. O workflow GitHub Actions terminou com sucesso:
+https://github.com/felipeoliveira17y/LandGPS/actions/runs/38450705210
+Artefato: GPS-Landmensure-debug-apk
+O artefato contém um APK debug dentro de um ZIP. É necessário abrir a execução do workflow, baixar o artefato, extrair e instalar o APK.
+
+Não foi confirmado que o APK foi instalado ou validado em dispositivo físico. A conclusão “workflow success” comprova compilação automatizada, não teste de campo nem validação de todas as funções.
+
+7. PROBLEMAS E CUIDADOS JÁ DISCUTIDOS
+
+Conflito na atualização do pacote:
+- O usuário relatou mensagem Android semelhante a “o pacote tem um conflito com um pacote já existente”. Isso pode acontecer ao instalar APK assinado com chave diferente da instalação existente (build debug/assinatura diferente).
+- Orientação anterior: exportar/salvar os levantamentos e remover o app antigo antes de instalar o novo APK, se o conflito persistir. Desinstalar pode apagar os dados locais; backups/exportações devem ser feitos primeiro.
+- Não afirmar que isso sempre é necessário; tentar instalação normal se a assinatura permitir atualização.
+
+Erro na coleta do ponto:
+- Usuário já relatou “Poucas leituras GNSS válidas durante a ocupação. Tente novamente em área aberta”. Esse aviso indica poucas leituras que passaram pelos critérios de qualidade durante a ocupação, e não uma falha de instalação.
+- Orientação operacional: testar em área aberta, céu desobstruído e aparelho imóvel; conferir permissões de localização precisa e GNSS. Não declarar o erro resolvido sem reproduzir e confirmar correção.
+
+Barras do Android e tamanho da interface:
+- O topo chegou a ficar encoberto por relógio/status bar em capturas de tela. Houve ajustes nativos para safe areas, além de tentativas de escala que ficaram pequenas e foram revertidas. Manter escala legível e compatibilidade com densidade/área segura é prioridade visual.
+
+Sincronização de fontes:
+- Em trabalho anterior, uma sincronização auxiliar chegou a reduzir `index.html` a um byte em uma cópia local. O arquivo principal foi restaurado do Git e a logo reaplicada de forma mínima. Depois, assets foram sincronizados para o pacote ZIP e o workflow compilou com sucesso. Ao editar/sincronizar, conferir o tamanho dos arquivos e validar o ZIP sem copiar arquivos vazios.
+
+8. PREFERÊNCIAS DO USUÁRIO
+
+- Responder em português brasileiro, de maneira direta e didática.
+- O usuário quer app com visual profissional, limpo e unificado, sem aparência de emojis/“IA”.
+- Quer botões separados por classes/funções e módulos distintos GNSS e Memorial KML.
+- Manter a função principal de levantamento e não retirar recursos importantes sem razão.
+- Prefere receber APK compilado via GitHub Actions porque o computador é muito limitado para compilar localmente.
+- Já autorizou deployment automático para o repositório GitHub citado acima; essa autorização foi usada anteriormente para commits/pushes.
+- Distinguir mudanças efetivamente implementadas de sugestões, planos e versões sugeridas.
+
+9. LINHA DO TEMPO RESUMIDA DO HISTÓRICO DO GIT
+
+O histórico conhecido do repositório registra commits em 13/10/2026, na sequência:
+- Importação do pacote v13 e arquivos Android.
+- Criação/correção do workflow de compilação APK.
+- Atualização da interface.
+- Ajustes de safe areas Android.
+- Teste de redução de escala e reversão ao tamanho normal.
+- Layout adaptativo.
+- README diferenciando recursos originais e melhorias.
+- Abas GNSS e Memorial KML.
+- Padronização e redimensionamento do Memorial KML.
+- Reserva nativa de espaço para barras do Android.
+- Inclusão do telefone e links sociais.
+- Correção de abertura do WhatsApp no Android.
+- Padronização dos links sociais do Memorial.
+- Criação e aplicação da identidade visual Landmensure.
+
+As datas do Git indicam quando os commits foram enviados/importados; não necessariamente a data real em que cada recurso foi originalmente desenvolvido.
+
+10. ORIENTAÇÃO PARA CONTINUIDADE
+
+Ao continuar o projeto:
+1. Verificar a branch, `git status`, último commit e workflow atual antes de editar.
+2. Confirmar se mudanças já estão em `main` antes de refazê-las.
+3. Preservar coleta GNSS, mapas, levantamentos, backups, exportações e Memorial KML.
+4. Ao alterar código/ícones, sincronizar o ZIP fonte somente com arquivos válidos e conferir entradas críticas.
+5. Para disponibilizar versão ao usuário, acompanhar o workflow até conclusão e fornecer link da execução/artefato.
+6. Não chamar APK debug de versão de produção nem declarar teste em celular sem evidência.
+7. Não usar datas/versões retrospectivas como se fossem releases oficiais.
+
+FIM DO DOCUMENTO
