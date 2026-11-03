@@ -2865,20 +2865,6 @@
         document.getElementById(id).addEventListener("input", salvarRascunho),
       );
       atualizarDados();
-      let rastreamentoInicializado = false;
-      function iniciarRastreamentoDaConta() {
-        if (
-          rastreamentoInicializado ||
-          !window.Android ||
-          typeof Android.startLiveLocation !== "function"
-        )
-          return;
-        rastreamentoInicializado = true;
-        Android.startLiveLocation();
-      }
-      window.addEventListener("landmensure:account-state", (event) => {
-        if (event.detail?.signedIn) iniciarRastreamentoDaConta();
-      });
     </script>
   </body>
 </html>

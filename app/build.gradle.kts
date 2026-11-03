@@ -10,6 +10,18 @@ val localProperties = Properties().apply {
 // ela vem do Secret SUPABASE_PUBLISHABLE_KEY e nunca é gravada no repositório.
 val supabasePublishableKey = localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY")
     ?: providers.environmentVariable("SUPABASE_PUBLISHABLE_KEY").orNull.orEmpty()
+val configuredVersionCode = providers.gradleProperty("versionCode").orNull?.toIntOrNull() ?: 16
+val configuredVersionName = providers.gradleProperty("versionName").orNull ?: "2.3.3-android14plus"
+val releaseStoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
+val releaseStorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
 
 plugins {
     id("com.android.application")
@@ -25,8 +37,8 @@ android {
         applicationId = "com.landmensure.gps"
         minSdk = 34
         targetSdk = 36
-        versionCode = 15
-        versionName = "2.3.2-android14plus"
+        versionCode = configuredVersionCode
+        versionName = configuredVersionName
         buildConfigField(
             "String",
             "SUPABASE_FUNCTIONS_URL",
@@ -50,6 +62,23 @@ android {
 
     buildFeatures {
         buildConfig = true
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+        }
     }
 
 }

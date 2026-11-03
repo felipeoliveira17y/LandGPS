@@ -121,7 +121,7 @@ class SupabaseAuthService(context: Context) {
 
     suspend fun signUp(email: String, password: String): AuthResult {
         if (!isConfigured()) return notConfigured()
-        if (!isValidCredentials(email, password)) return AuthResult.Failed("Informe um e-mail válido e uma senha com pelo menos 8 caracteres.")
+        if (!isValidCredentials(email, password)) return AuthResult.Failed("Informe um e-mail válido. ${AccountCredentials.passwordHint}")
         return request("signup", buildJsonObject {
             put("email", email.trim())
             put("password", password)
@@ -141,7 +141,7 @@ class SupabaseAuthService(context: Context) {
 
     suspend fun signIn(email: String, password: String): AuthResult {
         if (!isConfigured()) return notConfigured()
-        if (!isValidCredentials(email, password)) return AuthResult.Failed("Informe seu e-mail e senha.")
+        if (!AccountCredentials.isValidEmail(email) || password.isBlank()) return AuthResult.Failed("Informe seu e-mail e senha.")
         return request("token?grant_type=password", buildJsonObject {
             put("email", email.trim())
             put("password", password)
@@ -153,7 +153,7 @@ class SupabaseAuthService(context: Context) {
 
     suspend fun sendPasswordRecovery(email: String): AuthResult {
         if (!isConfigured()) return notConfigured()
-        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) return AuthResult.Failed("Informe um e-mail válido.")
+        if (!AccountCredentials.isValidEmail(email)) return AuthResult.Failed("Informe um e-mail válido.")
         return request("recover", buildJsonObject {
             put("email", email.trim())
             put("redirect_to", AUTH_CALLBACK)
@@ -162,7 +162,7 @@ class SupabaseAuthService(context: Context) {
 
     suspend fun updatePassword(password: String): AuthResult {
         val session = currentSession() ?: return AuthResult.Failed("Faça login novamente para alterar a senha.")
-        if (password.length < 8) return AuthResult.Failed("A nova senha deve ter pelo menos 8 caracteres.")
+        if (!AccountCredentials.isStrongPassword(password)) return AuthResult.Failed(AccountCredentials.passwordHint)
         return request("user", buildJsonObject { put("password", password) }, session.accessToken, method = "PUT") {
             AuthResult.PasswordUpdated
         }
@@ -253,7 +253,7 @@ class SupabaseAuthService(context: Context) {
     private fun isConfigured() = publishableKey.startsWith("sb_publishable_")
     private fun notConfigured() = AuthResult.Failed("A chave pública do Supabase ainda não foi configurada neste aplicativo.")
     private fun isValidCredentials(email: String, password: String) =
-        android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() && password.length >= 8
+        AccountCredentials.isValidEmail(email) && AccountCredentials.isStrongPassword(password)
 
     private companion object {
         const val AUTH_CALLBACK = "gpslandmensure://auth-callback"

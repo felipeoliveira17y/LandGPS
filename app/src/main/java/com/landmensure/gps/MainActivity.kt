@@ -54,6 +54,8 @@ class MainActivity : Activity() {
     private lateinit var locationManager: LocationManager
     private val locationRequestCode = 1001
     private var pendingStart = false
+    private var pendingOccupationSeconds: Int? = null
+    private var pendingOccupationAdjusted = false
     private var latestFix: Location? = null
     private var tracking = false
     private val handler = Handler(Looper.getMainLooper())
@@ -364,15 +366,12 @@ class MainActivity : Activity() {
             if (seconds !in listOf(15,30,60,120)) { sendLocationError("Tempo de ocupação inválido."); return@runOnUiThread }
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 pendingStart = true
+                pendingOccupationSeconds = seconds
+                pendingOccupationAdjusted = adjusted
                 requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
-                sendLocationError("Conceda Localização precisa e toque novamente em Coletar ponto.")
                 return@runOnUiThread
             }
-            startLiveTracking()
-            if (occupationActive) { sendLocationError("Já existe uma coleta em andamento."); return@runOnUiThread }
-            occupationActive = true; occupationSamples.clear(); occupationSeconds = seconds; occupationAdjusted = adjusted; occupationStart = System.currentTimeMillis()
-            sendOccupationProgress(0, seconds, 0, latestFix?.accuracy?.toDouble() ?: -1.0)
-            scheduleOccupationTick()
+            startRequestedOccupation(seconds, adjusted)
         }}
 
         @JavascriptInterface fun requestLocation() { // botão Coletar ponto = fotografia da posição AO VIVO atual
@@ -398,49 +397,76 @@ class MainActivity : Activity() {
             }
         }
 
-        @JavascriptInterface fun saveFile(name: String, content: String, mime: String) { runOnUiThread {
-            try {
-                val allowedMimes = setOf("text/csv", "application/json", "application/vnd.google-earth.kml+xml", "text/plain")
-                require(mime in allowedMimes) { "Tipo de arquivo não permitido" }
-                require(content.toByteArray(Charsets.UTF_8).size <= 5 * 1024 * 1024) { "Arquivo maior que 5 MB" }
-                val safeName = name.substringAfterLast('/').substringAfterLast('\\')
-                    .replace(Regex("[^A-Za-z0-9._ -]"), "_")
-                    .take(120)
-                require(safeName.isNotBlank()) { "Nome de arquivo inválido" }
-                val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/GPS Landmensure")
-                        put(MediaStore.MediaColumns.IS_PENDING, 1)
-                    }
+        @JavascriptInterface fun saveFile(name: String, content: String, mime: String) {
+            accountScope.launch {
+                // Backup JSON é parte do plano Free; exportações profissionais exigem
+                // confirmação de direito no Supabase, fora da interface JavaScript.
+                if (mime != "application/json" && !withContext(Dispatchers.IO) { authService.ensureActiveSession() && authService.hasActivePro() }) {
+                    Toast.makeText(this@MainActivity, "Exportação profissional disponível no Landmensure Pro.", Toast.LENGTH_LONG).show()
+                    return@launch
                 }
-                val resolver = contentResolver
-                val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                    ?: throw IllegalStateException("Não foi possível criar o arquivo em Downloads")
-                try {
-                    resolver.openOutputStream(uri)?.use { it.write(content.toByteArray(Charsets.UTF_8)) }
-                        ?: throw IllegalStateException("Não foi possível gravar o arquivo")
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        val ready = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
-                        resolver.update(uri, ready, null, null)
-                    }
-                } catch (e: Exception) {
-                    resolver.delete(uri, null, null)
-                    throw e
-                }
-                Toast.makeText(this@MainActivity, "Arquivo salvo em Downloads/GPS Landmensure: $safeName", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) { Toast.makeText(this@MainActivity, "Erro ao salvar: ${e.message}", Toast.LENGTH_LONG).show() }
-        }}
+                saveFileToDownloads(name, content, mime)
+            }
+        }
 
-        @JavascriptInterface fun printHtml(jobName: String, html: String) { runOnUiThread {
-            val printView = WebView(this@MainActivity); printView.settings.javaScriptEnabled = false
-            printView.webViewClient = object : WebViewClient() { override fun onPageFinished(view: WebView?, url: String?) {
+        @JavascriptInterface fun printHtml(jobName: String, html: String) {
+            accountScope.launch {
+                if (!withContext(Dispatchers.IO) { authService.ensureActiveSession() && authService.hasActivePro() }) {
+                    Toast.makeText(this@MainActivity, "Memorial em PDF disponível no Landmensure Pro.", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                printMemorial(jobName, html)
+            }
+        }
+    }
+
+    private fun saveFileToDownloads(name: String, content: String, mime: String) {
+        try {
+            val allowedMimes = setOf("text/csv", "application/json", "application/vnd.google-earth.kml+xml", "text/plain")
+            require(mime in allowedMimes) { "Tipo de arquivo não permitido" }
+            require(content.toByteArray(Charsets.UTF_8).size <= 5 * 1024 * 1024) { "Arquivo maior que 5 MB" }
+            val safeName = name.substringAfterLast('/').substringAfterLast('\\')
+                .replace(Regex("[^A-Za-z0-9._ -]"), "_")
+                .take(120)
+            require(safeName.isNotBlank()) { "Nome de arquivo inválido" }
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/GPS Landmensure")
+                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+            }
+            val resolver = contentResolver
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException("Não foi possível criar o arquivo em Downloads")
+            try {
+                resolver.openOutputStream(uri)?.use { it.write(content.toByteArray(Charsets.UTF_8)) }
+                    ?: throw IllegalStateException("Não foi possível gravar o arquivo")
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val ready = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+                    resolver.update(uri, ready, null, null)
+                }
+            } catch (e: Exception) {
+                resolver.delete(uri, null, null)
+                throw e
+            }
+            Toast.makeText(this, "Arquivo salvo em Downloads/GPS Landmensure: $safeName", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Erro ao salvar: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun printMemorial(jobName: String, html: String) {
+        val printView = WebView(this)
+        printView.settings.javaScriptEnabled = false
+        printView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
                 val pm = getSystemService(Context.PRINT_SERVICE) as PrintManager
                 pm.print(jobName, printView.createPrintDocumentAdapter(jobName), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
-            }}
-            printView.loadDataWithBaseURL("file:///android_asset/", html, "text/html", "UTF-8", null)
-        }}
+            }
+        }
+        printView.loadDataWithBaseURL("https://appassets.androidplatform.net/assets/", html, "text/html", "UTF-8", null)
     }
 
     private fun ensurePermissionAndStart() {
@@ -448,6 +474,33 @@ class MainActivity : Activity() {
             pendingStart = true
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
         } else startLiveTracking()
+    }
+
+    private fun startRequestedOccupation(seconds: Int, adjusted: Boolean) {
+        if (adjusted) {
+            accountScope.launch {
+                val pro = withContext(Dispatchers.IO) {
+                    authService.ensureActiveSession() && authService.hasActivePro()
+                }
+                if (!pro) {
+                    sendLocationError("Ponto ajustado é exclusivo do Landmensure Pro. Escolha um plano para continuar.")
+                    return@launch
+                }
+                beginOccupation(seconds, adjusted = true)
+            }
+        } else beginOccupation(seconds, adjusted = false)
+    }
+
+    private fun beginOccupation(seconds: Int, adjusted: Boolean) {
+        startLiveTracking()
+        if (occupationActive) { sendLocationError("Já existe uma coleta em andamento."); return }
+        occupationActive = true
+        occupationSamples.clear()
+        occupationSeconds = seconds
+        occupationAdjusted = adjusted
+        occupationStart = System.currentTimeMillis()
+        sendOccupationProgress(0, seconds, 0, latestFix?.accuracy?.toDouble() ?: -1.0)
+        scheduleOccupationTick()
     }
 
     @SuppressLint("MissingPermission")
@@ -590,13 +643,24 @@ class MainActivity : Activity() {
         if (requestCode == locationRequestCode) {
             pendingStart = false
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                startLiveTracking()
-                sendLocationError("Localização autorizada. Aguarde as coordenadas aparecerem e toque novamente em Coletar ponto.")
+                val seconds = pendingOccupationSeconds
+                val adjusted = pendingOccupationAdjusted
+                pendingOccupationSeconds = null
+                pendingOccupationAdjusted = false
+                if (seconds != null) startRequestedOccupation(seconds, adjusted)
+                else {
+                    startLiveTracking()
+                    sendLiveStatus("Localização autorizada. Aguardando fixação GPS/GNSS…")
+                }
             }
-            else sendLocationError("Ative 'Usar localização precisa' nas permissões do GPS Landmensure.")
+            else {
+                pendingOccupationSeconds = null
+                pendingOccupationAdjusted = false
+                sendLocationError("Ative 'Usar localização precisa' nas permissões do GPS Landmensure.")
+            }
         }
     }
-    override fun onResume() { super.onResume(); if (::locationManager.isInitialized && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED) startLiveTracking() }
+    override fun onResume() { super.onResume() }
     override fun onPause() { super.onPause(); if (::locationManager.isInitialized && tracking) { runCatching{locationManager.removeUpdates(liveListener)}; runCatching{locationManager.unregisterGnssStatusCallback(gnssCallback)}; runCatching{locationManager.removeNmeaListener(nmeaListener)}; tracking=false } }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleAuthCallback(intent) }
     override fun onDestroy() { accountScope.cancel(); super.onDestroy() }

@@ -48,6 +48,22 @@ Deno.serve(async (request) => {
   const priceId = plan ? prices[plan] : undefined;
   if (!plan || !priceId) return json({ error: "Plano inválido." }, 400);
 
+  const { data: checkoutPermission, error: checkoutPermissionError } = await supabase
+    .rpc("claim_checkout_attempt");
+  if (checkoutPermissionError) {
+    console.error("Não foi possível validar tentativa de checkout.", checkoutPermissionError);
+    return json({ error: "Não foi possível preparar o pagamento. Tente novamente em instantes." }, 503);
+  }
+  const permission = checkoutPermission as { allowed?: boolean; reason?: string } | null;
+  if (!permission?.allowed) {
+    const message = permission?.reason === "already_pro"
+      ? "Você já possui um plano Pro ativo. Gerencie a assinatura pelo atendimento."
+      : permission?.reason === "rate_limited"
+      ? "Muitas tentativas de pagamento. Aguarde alguns minutos e tente novamente."
+      : "Sessão inválida.";
+    return json({ error: message }, 409);
+  }
+
   const stripe = new Stripe(stripeSecretKey);
   const checkoutReturnUrl = `${supabaseUrl}/functions/v1/checkout-return`;
   const session = await stripe.checkout.sessions.create({

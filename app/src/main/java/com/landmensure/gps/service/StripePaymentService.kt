@@ -72,7 +72,10 @@ class StripePaymentService(
         }
 
         if (!response.successful) {
-            return CheckoutResult.Failed("Não foi possível iniciar o pagamento. Tente novamente.")
+            val message = runCatching {
+                json.parseToJsonElement(response.body).jsonObject["error"]?.jsonPrimitive?.content
+            }.getOrNull()
+            return CheckoutResult.Failed(message ?: "Não foi possível iniciar o pagamento. Tente novamente.")
         }
 
         val checkoutUrl = runCatching {

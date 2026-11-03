@@ -45,6 +45,9 @@ jobs:
       - name: Executar testes unitários
         run: gradle --no-daemon testDebugUnitTest
 
+      - name: Executar análise estática
+        run: gradle --no-daemon lintDebug
+
       - name: Compilar APK de depuração
         run: gradle --no-daemon assembleDebug
 

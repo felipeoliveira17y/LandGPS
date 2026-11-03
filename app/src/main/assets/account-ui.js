@@ -39,10 +39,10 @@
     const content = document.getElementById("authGateContent");
     if (!content) return;
     if (model.recovery) {
-      content.innerHTML = `<form class="auth-gate-form" onsubmit="return window.landmensureAccount.savePassword(event)"><label class="auth-field"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="gateNewPassword" type="password" minlength="8" required autocomplete="new-password" placeholder="Nova senha (mínimo 8 caracteres)"></label><button class="auth-main navy" type="submit">Salvar nova senha</button><button class="auth-secondary" type="button" onclick="window.landmensureAccount.cancelRecovery()">Voltar para o login</button></form>`;
+      content.innerHTML = `<form class="auth-gate-form" onsubmit="return window.landmensureAccount.savePassword(event)"><label class="auth-field"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="gateNewPassword" type="password" minlength="10" required autocomplete="new-password" placeholder="Senha forte: 10+ caracteres, A/a e número"></label><button class="auth-main navy" type="submit">Salvar nova senha</button><button class="auth-secondary" type="button" onclick="window.landmensureAccount.cancelRecovery()">Voltar para o login</button></form>`;
       return;
     }
-    content.innerHTML = `<form class="auth-gate-form" onsubmit="return window.landmensureAccount.signIn(event)"><label class="auth-field"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg><input id="gateEmail" type="email" required autocomplete="email" placeholder="Seu e-mail"></label><label class="auth-field"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="gatePassword" type="password" minlength="8" required autocomplete="current-password" placeholder="Sua senha"></label><button class="auth-main navy" type="submit">Entrar no Landmensure</button><button class="auth-secondary" type="button" onclick="window.landmensureAccount.signUp()">Criar minha conta</button><button class="auth-recovery" type="button" onclick="window.landmensureAccount.recover()">Esqueci minha senha</button></form>`;
+    content.innerHTML = `<form class="auth-gate-form" onsubmit="return window.landmensureAccount.signIn(event)"><label class="auth-field"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m4 7 8 6 8-6"/></svg><input id="gateEmail" type="email" required autocomplete="email" placeholder="Seu e-mail"></label><label class="auth-field"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><input id="gatePassword" type="password" required autocomplete="current-password" placeholder="Sua senha"></label><button class="auth-main navy" type="submit">Entrar no Landmensure</button><button class="auth-secondary" type="button" onclick="window.landmensureAccount.signUp()">Criar minha conta</button></form>`;
   }
 
   function renderAccount() {
@@ -59,18 +59,20 @@
     content.innerHTML = `<section class="account-summary"><strong>${escapeHtml(model.email || "Conta Landmensure")}</strong><span>${plan} neste aparelho.</span></section><button class="account-plan-action navy" type="button" onclick="window.landmensureAccount.openPlans()">${action}</button><button class="account-logout" type="button" onclick="window.landmensureAccount.signOut()">Sair da conta</button>`;
   }
 
-  function openGate(requestState = true) {
+  function openGate({ refreshState = true } = {}) {
     document.getElementById("accountModal").hidden = true;
     document.getElementById("authGate").hidden = false;
     document.body.style.overflow = "hidden";
     renderGate();
-    if (requestState && native()) window.Android.getAccountState();
-    else
+    if (refreshState && native()) {
+      window.Android.getAccountState();
+    } else if (!native()) {
       setText(
         "authGateStatus",
         "O acesso por conta funciona no aplicativo Android instalado.",
         "error",
       );
+    }
   }
 
   function closeGate() {
@@ -223,7 +225,7 @@
       );
       announceAccountState();
       if (model.signedIn) closeGate();
-      else openGate(false);
+      else openGate({ refreshState: false });
       renderAccount();
       return;
     }
@@ -245,7 +247,7 @@
       announceAccountState();
       closeAccount();
       closePlans();
-      openGate(false);
+      openGate({ refreshState: false });
       setText("authGateStatus", event.message, "ok");
       return;
     }
