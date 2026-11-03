@@ -506,6 +506,10 @@ class MainActivity : Activity() {
             is AuthResult.RecoverySent -> sendAccountEvent("recovery_sent", "Enviamos as instruções para ${result.email}.", result.email, false)
             AuthResult.RecoveryReady -> sendAccountEvent("recovery_ready", "Defina a sua nova senha.", authService.currentSession()?.email, true)
             AuthResult.PasswordUpdated -> sendAccountEvent("password_updated", "Senha atualizada.", authService.currentSession()?.email, true)
+            is AuthResult.PaymentReturned -> {
+                val message = if (result.status == "success") "Pagamento concluído. Atualize sua conta em instantes." else "Pagamento cancelado."
+                sendAccountEvent("payment_returned", message, authService.currentSession()?.email, authService.currentSession() != null)
+            }
             is AuthResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
         }
     }

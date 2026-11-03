@@ -31,6 +31,7 @@ sealed interface AuthResult {
     data object SignedOut : AuthResult
     data class RecoverySent(val email: String) : AuthResult
     data object RecoveryReady : AuthResult
+    data class PaymentReturned(val status: String) : AuthResult
     data object PasswordUpdated : AuthResult
     data class Failed(val message: String) : AuthResult
 }
@@ -135,7 +136,9 @@ class SupabaseAuthService(context: Context) {
             saveSession(accessToken, refreshToken, email)
             return AuthResult.SignedIn(email)
         }
+        values["payment"]?.let { return AuthResult.PaymentReturned(it) }
         return if (values["type"] == "recovery") AuthResult.RecoveryReady
+        else if (values["type"] == "signup") AuthResult.ConfirmationSent
         else AuthResult.Failed("Abra o link novamente ou entre com seu e-mail e senha.")
     }
 
