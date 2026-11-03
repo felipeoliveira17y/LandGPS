@@ -286,7 +286,9 @@ class MainActivity : Activity() {
         }
         @JavascriptInterface fun signOut() {
             accountScope.launch {
-                publishAuthResult(withContext(Dispatchers.IO) { authService.signOut() })
+                val result = withContext(Dispatchers.IO) { authService.signOut() }
+                stopLiveTracking()
+                publishAuthResult(result)
             }
         }
         @JavascriptInterface fun subscribe(plan: String) {
@@ -300,13 +302,13 @@ class MainActivity : Activity() {
                 }
             }
             accountScope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    StripePaymentService().startCheckout(
-                        this@MainActivity,
-                        authService.currentSession()?.accessToken,
-                        selectedPlan,
-                    )
-                }
+                // O Ktor suspende sem bloquear a UI, e o Intent do Stripe precisa
+                // ser aberto na thread principal do Android.
+                val result = StripePaymentService().startCheckout(
+                    this@MainActivity,
+                    authService.currentSession()?.accessToken,
+                    selectedPlan,
+                )
                 publishCheckoutResult(result)
             }
         }
@@ -406,6 +408,10 @@ class MainActivity : Activity() {
 
         @JavascriptInterface fun printHtml(jobName: String, html: String) {
             accountScope.launch {
+                if (html.toByteArray(Charsets.UTF_8).size > 5 * 1024 * 1024) {
+                    Toast.makeText(this@MainActivity, "Memorial maior que 5 MB não pode ser impresso.", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
                 if (!withContext(Dispatchers.IO) { authService.ensureActiveSession() && authService.hasActivePro() }) {
                     Toast.makeText(this@MainActivity, "Memorial em PDF disponível no Landmensure Pro.", Toast.LENGTH_LONG).show()
                     return@launch
@@ -508,6 +514,16 @@ class MainActivity : Activity() {
         runCatching { locationManager.registerGnssStatusCallback(gnssCallback, handler) }
         runCatching { locationManager.addNmeaListener(nmeaListener, handler) }
         sendLiveStatus("Aguardando fixação GPS/GNSS…")
+    }
+
+    private fun stopLiveTracking() {
+        if (!::locationManager.isInitialized || !tracking) return
+        runCatching { locationManager.removeUpdates(liveListener) }
+        runCatching { locationManager.unregisterGnssStatusCallback(gnssCallback) }
+        runCatching { locationManager.removeNmeaListener(nmeaListener) }
+        tracking = false
+        latestFix = null
+        sendLiveStatus("Rastreamento GPS encerrado.")
     }
 
     private fun scheduleOccupationTick() {
@@ -648,7 +664,7 @@ class MainActivity : Activity() {
         super.onResume()
         if (::webView.isInitialized) refreshAccountState()
     }
-    override fun onPause() { super.onPause(); if (::locationManager.isInitialized && tracking) { runCatching{locationManager.removeUpdates(liveListener)}; runCatching{locationManager.unregisterGnssStatusCallback(gnssCallback)}; runCatching{locationManager.removeNmeaListener(nmeaListener)}; tracking=false } }
+    override fun onPause() { super.onPause(); stopLiveTracking() }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) }
     override fun onDestroy() { accountScope.cancel(); super.onDestroy() }
     @Deprecated("Deprecated in Java")

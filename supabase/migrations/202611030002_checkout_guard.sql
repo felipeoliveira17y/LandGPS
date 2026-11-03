@@ -28,6 +28,10 @@ begin
     return jsonb_build_object('allowed', false, 'reason', 'unauthenticated');
   end if;
 
+  -- Serializa a decisão por usuário: duas requisições simultâneas não podem
+  -- ambas passar pela contagem antes de registrar a tentativa.
+  perform pg_advisory_xact_lock(hashtextextended(current_user_id::text, 0));
+
   select exists (
     select 1
     from public.subscriptions s
