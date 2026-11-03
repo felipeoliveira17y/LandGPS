@@ -2,15 +2,6 @@ name: Generate signed Landmensure release
 
 on:
   workflow_dispatch:
-    inputs:
-      version_code:
-        description: "Código numérico maior que o da versão anterior"
-        required: true
-        default: "16"
-      version_name:
-        description: "Versão exibida, por exemplo 2.3.3"
-        required: true
-        default: "2.3.3"
 
 permissions:
   contents: read
@@ -24,7 +15,6 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-      ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/landmensure-release.keystore
     steps:
       - uses: actions/checkout@v7
 
@@ -52,14 +42,16 @@ jobs:
           done
 
       - name: Preparar keystore
-        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_FILE"
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/landmensure-release.keystore"
 
       - name: Testar, analisar e gerar APK assinado
-        run: gradle --no-daemon testDebugUnitTest lintDebug -PversionCode=${{ inputs.version_code }} -PversionName=${{ inputs.version_name }} assembleRelease
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/landmensure-release.keystore
+        run: gradle --no-daemon testDebugUnitTest lintDebug assembleRelease
 
       - name: Publicar APK assinado
         uses: actions/upload-artifact@v4
         with:
-          name: GPS-Landmensure-${{ inputs.version_name }}-release
+          name: GPS-Landmensure-2.3.3-release
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
