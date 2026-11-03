@@ -1,0 +1,3 @@
+# Copie este arquivo para local.properties e informe somente a chave publishable.
+# A chave é pública e pode estar no aplicativo; nunca coloque uma sb_secret_ aqui.
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_COLE_AQUI
