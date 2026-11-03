@@ -1,0 +1,9 @@
+.gradle/
+build/
+app/build/
+local.properties
+
+# Supabase and Stripe secrets must remain outside version control.
+supabase/.env
+supabase/functions/.env
+.env
