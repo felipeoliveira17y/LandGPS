@@ -59,6 +59,7 @@ class MainActivity : Activity() {
     private var occupationActive = false
     private var occupationStart = 0L
     private var occupationSeconds = 0
+    private var occupationAdjusted = false
     private val occupationSamples = mutableListOf<Location>()
     private var satellitesVisible = 0
     private var satellitesUsed = 0
@@ -142,7 +143,10 @@ class MainActivity : Activity() {
         override fun onLocationChanged(location: Location) {
             if (location.provider != LocationManager.GPS_PROVIDER) return
             if (location.latitude !in -90.0..90.0 || location.longitude !in -180.0..180.0) return
-            if (location.isMock) return
+            if (location.isMock) {
+                sendLiveStatus("Localização simulada foi ignorada. Desative o app de localização falsa para coletar.")
+                return
+            }
             if (!location.hasAccuracy()) return
             latestFix = Location(location)
             deliverLiveLocation(location)
@@ -197,16 +201,24 @@ class MainActivity : Activity() {
         appRoot.requestApplyInsets()
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.allowFileAccessFromFileURLs = true
+        // O conteúdo principal é empacotado no APK. Não permita que scripts locais
+        // atravessem para ContentProviders ou outros arquivos do aparelho.
+        webView.settings.allowFileAccess = false
+        webView.settings.allowContentAccess = false
+        webView.settings.allowFileAccessFromFileURLs = false
         webView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView?, request: android.webkit.WebResourceRequest?): Boolean {
+                val uri = request?.url ?: return true
+                if (uri.scheme == "file" && uri.path?.startsWith("/android_asset/") == true) return false
+                if (uri.scheme == "https") runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+                return true
+            }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 pendingAuthResult?.let {
                     pendingAuthResult = null
                     publishAuthResult(it)
-                } ?: publishAccountState()
+                } ?: refreshAccountState()
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -244,7 +256,7 @@ class MainActivity : Activity() {
     }
 
     inner class AndroidBridge {
-        @JavascriptInterface fun getAccountState() { runOnUiThread { publishAccountState() } }
+        @JavascriptInterface fun getAccountState() { refreshAccountState() }
         @JavascriptInterface fun signUp(email: String, password: String) {
             accountScope.launch {
                 publishAuthResult(withContext(Dispatchers.IO) { authService.signUp(email, password) })
@@ -338,7 +350,7 @@ class MainActivity : Activity() {
 
         @JavascriptInterface fun startLiveLocation() { runOnUiThread { ensurePermissionAndStart() } }
 
-        @JavascriptInterface fun startOccupation(seconds: Int) { runOnUiThread {
+        @JavascriptInterface fun startOccupation(seconds: Int, adjusted: Boolean = false) { runOnUiThread {
             if (seconds !in listOf(15,30,60,120)) { sendLocationError("Tempo de ocupação inválido."); return@runOnUiThread }
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 pendingStart = true
@@ -348,7 +360,7 @@ class MainActivity : Activity() {
             }
             startLiveTracking()
             if (occupationActive) { sendLocationError("Já existe uma coleta em andamento."); return@runOnUiThread }
-            occupationActive = true; occupationSamples.clear(); occupationSeconds = seconds; occupationStart = System.currentTimeMillis()
+            occupationActive = true; occupationSamples.clear(); occupationSeconds = seconds; occupationAdjusted = adjusted; occupationStart = System.currentTimeMillis()
             sendOccupationProgress(0, seconds, 0, latestFix?.accuracy?.toDouble() ?: -1.0)
             scheduleOccupationTick()
         }}
@@ -378,8 +390,15 @@ class MainActivity : Activity() {
 
         @JavascriptInterface fun saveFile(name: String, content: String, mime: String) { runOnUiThread {
             try {
+                val allowedMimes = setOf("text/csv", "application/json", "application/vnd.google-earth.kml+xml", "text/plain")
+                require(mime in allowedMimes) { "Tipo de arquivo não permitido" }
+                require(content.toByteArray(Charsets.UTF_8).size <= 5 * 1024 * 1024) { "Arquivo maior que 5 MB" }
+                val safeName = name.substringAfterLast('/').substringAfterLast('\\')
+                    .replace(Regex("[^A-Za-z0-9._ -]"), "_")
+                    .take(120)
+                require(safeName.isNotBlank()) { "Nome de arquivo inválido" }
                 val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, safeName)
                     put(MediaStore.MediaColumns.MIME_TYPE, mime)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         put(MediaStore.MediaColumns.RELATIVE_PATH, "Download/GPS Landmensure")
@@ -400,12 +419,12 @@ class MainActivity : Activity() {
                     resolver.delete(uri, null, null)
                     throw e
                 }
-                Toast.makeText(this@MainActivity, "Arquivo salvo em Downloads/GPS Landmensure: $name", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, "Arquivo salvo em Downloads/GPS Landmensure: $safeName", Toast.LENGTH_LONG).show()
             } catch (e: Exception) { Toast.makeText(this@MainActivity, "Erro ao salvar: ${e.message}", Toast.LENGTH_LONG).show() }
         }}
 
         @JavascriptInterface fun printHtml(jobName: String, html: String) { runOnUiThread {
-            val printView = WebView(this@MainActivity); printView.settings.javaScriptEnabled = true
+            val printView = WebView(this@MainActivity); printView.settings.javaScriptEnabled = false
             printView.webViewClient = object : WebViewClient() { override fun onPageFinished(view: WebView?, url: String?) {
                 val pm = getSystemService(Context.PRINT_SERVICE) as PrintManager
                 pm.print(jobName, printView.createPrintDocumentAdapter(jobName), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
@@ -451,14 +470,18 @@ class MainActivity : Activity() {
         fun meters(lat:Double, lon:Double):Double {
             val dy=(lat-medLat)*111320.0; val dx=(lon-medLon)*111320.0*kotlin.math.cos(Math.toRadians(medLat)); return kotlin.math.sqrt(dx*dx+dy*dy)
         }
-        val ds=samples.map{meters(it.latitude,it.longitude)}.sorted(); val medD=ds[ds.size/2]
-        val absDev=ds.map{kotlin.math.abs(it-medD)}.sorted(); val mad=absDev[absDev.size/2]
-        val limit=kotlin.math.max(3.0, medD + 3.0*kotlin.math.max(mad,0.5))
-        val valid=samples.filter{meters(it.latitude,it.longitude)<=limit}
+        val valid = if (occupationAdjusted) {
+            val ds=samples.map{meters(it.latitude,it.longitude)}.sorted(); val medD=ds[ds.size/2]
+            val absDev=ds.map{kotlin.math.abs(it-medD)}.sorted(); val mad=absDev[absDev.size/2]
+            val limit=kotlin.math.max(3.0, medD + 3.0*kotlin.math.max(mad,0.5))
+            samples.filter{meters(it.latitude,it.longitude)<=limit}
+        } else samples
         if (valid.size < 3) { sendLocationError("As leituras ficaram muito dispersas. Repita a ocupação."); return }
-        var sw=0.0; var slat=0.0; var slon=0.0
-        valid.forEach { val a=kotlin.math.max(it.accuracy.toDouble(),1.0); val w=1.0/(a*a); sw+=w; slat+=it.latitude*w; slon+=it.longitude*w }
-        val lat=slat/sw; val lon=slon/sw
+        val (lat, lon) = if (occupationAdjusted) {
+            var sw=0.0; var slat=0.0; var slon=0.0
+            valid.forEach { val a=kotlin.math.max(it.accuracy.toDouble(),1.0); val w=1.0/(a*a); sw+=w; slat+=it.latitude*w; slon+=it.longitude*w }
+            slat/sw to slon/sw
+        } else valid.map { it.latitude }.average() to valid.map { it.longitude }.average()
         val radial2=valid.map{ val dy=(it.latitude-lat)*111320.0; val dx=(it.longitude-lon)*111320.0*kotlin.math.cos(Math.toRadians(lat)); dx*dx+dy*dy }
         val spread=kotlin.math.sqrt(radial2.average())
         val std = if (valid.size > 1) kotlin.math.sqrt(radial2.sum()/(valid.size-1)) else spread
@@ -493,14 +516,25 @@ class MainActivity : Activity() {
     private fun sendLocationError(message: String) { val s=js(message); webView.evaluateJavascript("receiveNativeLocationError('$s')", null) }
     private fun js(s:String)=s.replace("\\","\\\\").replace("'","\\'").replace("\n"," ")
 
-    private fun publishAccountState() {
+    private fun refreshAccountState() {
+        accountScope.launch {
+            val active = withContext(Dispatchers.IO) { authService.ensureActiveSession() }
+            val pro = if (active) withContext(Dispatchers.IO) { authService.hasActivePro() } else false
+            publishAccountState(pro)
+        }
+    }
+
+    private fun publishAccountState(pro: Boolean = false) {
         val session = authService.currentSession()
-        sendAccountEvent("state", if (session == null) "Você ainda não entrou em uma conta." else "Sessão ativa.", session?.email, session != null)
+        sendAccountEvent("state", if (session == null) "Você ainda não entrou em uma conta." else "Sessão ativa.", session?.email, session != null, pro)
     }
 
     private fun publishAuthResult(result: AuthResult) {
         when (result) {
-            is AuthResult.SignedIn -> sendAccountEvent("signed_in", "Conta conectada.", result.email, true)
+            is AuthResult.SignedIn -> {
+                sendAccountEvent("signed_in", "Conta conectada.", result.email, true)
+                refreshAccountState()
+            }
             AuthResult.ConfirmationSent -> sendAccountEvent("confirmation_sent", "Confira seu e-mail para confirmar a conta.", null, false)
             AuthResult.SignedOut -> sendAccountEvent("signed_out", "Você saiu da conta.", null, false)
             is AuthResult.RecoverySent -> sendAccountEvent("recovery_sent", "Enviamos as instruções para ${result.email}.", result.email, false)
@@ -509,6 +543,7 @@ class MainActivity : Activity() {
             is AuthResult.PaymentReturned -> {
                 val message = if (result.status == "success") "Pagamento concluído. Atualize sua conta em instantes." else "Pagamento cancelado."
                 sendAccountEvent("payment_returned", message, authService.currentSession()?.email, authService.currentSession() != null)
+                if (result.status == "success") handler.postDelayed({ refreshAccountState() }, 3_000L)
             }
             is AuthResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
         }
@@ -522,10 +557,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun sendAccountEvent(type: String, message: String, email: String?, signedIn: Boolean) {
+    private fun sendAccountEvent(type: String, message: String, email: String?, signedIn: Boolean, pro: Boolean = false) {
         if (!::webView.isInitialized) return
         val encodedEmail = email?.let { JSONObject.quote(it) } ?: "null"
-        val payload = "{type:${JSONObject.quote(type)},message:${JSONObject.quote(message)},email:$encodedEmail,signedIn:$signedIn}"
+        val payload = "{type:${JSONObject.quote(type)},message:${JSONObject.quote(message)},email:$encodedEmail,signedIn:$signedIn,pro:$pro}"
         webView.evaluateJavascript("window.receiveAccountEvent&&window.receiveAccountEvent($payload)", null)
     }
 
@@ -544,7 +579,10 @@ class MainActivity : Activity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == locationRequestCode) {
             pendingStart = false
-            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) startLiveTracking()
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                startLiveTracking()
+                sendLocationError("Localização autorizada. Aguarde as coordenadas aparecerem e toque novamente em Coletar ponto.")
+            }
             else sendLocationError("Ative 'Usar localização precisa' nas permissões do GPS Landmensure.")
         }
     }
@@ -552,7 +590,14 @@ class MainActivity : Activity() {
     override fun onPause() { super.onPause(); if (::locationManager.isInitialized && tracking) { runCatching{locationManager.removeUpdates(liveListener)}; runCatching{locationManager.unregisterGnssStatusCallback(gnssCallback)}; runCatching{locationManager.removeNmeaListener(nmeaListener)}; tracking=false } }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleAuthCallback(intent) }
     override fun onDestroy() { accountScope.cancel(); super.onDestroy() }
-    @Deprecated("Deprecated in Java") override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        webView.evaluateJavascript("window.landmensureCloseTopOverlay?.() === true") { closedOverlay ->
+            if (closedOverlay != "true") {
+                if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+            }
+        }
+    }
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

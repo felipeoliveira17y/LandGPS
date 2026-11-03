@@ -64,6 +64,8 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
+    testImplementation("junit:junit:4.13.2")
+
     // A autenticação Supabase é chamada pela API REST em SupabaseAuthService.
     // Portanto, não é necessário incluir o SDK auth-kt aqui. Manter a dependência
     // sem uma versão fazia o Gradle falhar durante a resolução do APK.

@@ -8,6 +8,7 @@ import com.landmensure.gps.BuildConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.android.Android
 import io.ktor.client.request.accept
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -51,6 +52,7 @@ class SupabaseAuthService(context: Context) {
     )
     private val json = Json { ignoreUnknownKeys = true }
     private val baseUrl = "https://tfuiwogiwbvqxfqktnwe.supabase.co/auth/v1"
+    private val restUrl = "https://tfuiwogiwbvqxfqktnwe.supabase.co/rest/v1"
     private val publishableKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY
 
     fun currentSession(): AccountSession? {
@@ -61,6 +63,60 @@ class SupabaseAuthService(context: Context) {
 
     fun clearSession() {
         prefs.edit().clear().apply()
+    }
+
+    /** Valida a sessão persistida e tenta renová-la uma vez antes de tratá-la como expirada. */
+    suspend fun ensureActiveSession(): Boolean {
+        val session = currentSession() ?: return false
+        if (!isConfigured()) return false
+        val validationStatus = runCatching {
+            HttpClient(Android).use { client ->
+                client.get("$baseUrl/user") {
+                    header("apikey", publishableKey)
+                    header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+                    accept(ContentType.Application.Json)
+                }.status.value
+            }
+        }.getOrNull()
+        if (validationStatus == null) return true // offline: preserva a sessão local sem liberar Pro.
+        if (validationStatus in 200..299) return true
+        // Somente credenciais recusadas devem disparar refresh/limpeza. Respostas como 429
+        // ou 5xx pertencem ao servidor e não podem derrubar uma sessão válida localmente.
+        if (validationStatus !in setOf(401, 403)) return true
+
+        val refreshed = runCatching {
+            HttpClient(Android).use { client ->
+                val response = client.post("$baseUrl/token?grant_type=refresh_token") {
+                    header("apikey", publishableKey)
+                    contentType(ContentType.Application.Json)
+                    setBody(buildJsonObject { put("refresh_token", session.refreshToken) }.toString())
+                }
+                if (response.status.value !in 200..299) false else {
+                    saveSession(json.parseToJsonElement(response.bodyAsText()).jsonObject, session.email ?: "")
+                    true
+                }
+            }
+        }.getOrNull()
+        if (refreshed == null) return true // falha de rede não deve desconectar o usuário.
+        if (!refreshed) clearSession()
+        return refreshed
+    }
+
+    /** Falha fechada: em caso de rede ou sessão inválida, recursos Pro não são liberados. */
+    suspend fun hasActivePro(): Boolean {
+        val session = currentSession() ?: return false
+        if (!isConfigured()) return false
+        return runCatching {
+            HttpClient(Android).use { client ->
+                val response = client.post("$restUrl/rpc/has_active_pro") {
+                    header("apikey", publishableKey)
+                    header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+                    contentType(ContentType.Application.Json)
+                    setBody("{}")
+                }
+                response.status.value in 200..299 && response.bodyAsText().trim() == "true"
+            }
+        }.getOrDefault(false)
     }
 
     suspend fun signUp(email: String, password: String): AuthResult {
@@ -129,17 +185,12 @@ class SupabaseAuthService(context: Context) {
             val index = pair.indexOf('=')
             if (index > 0) values[Uri.decode(pair.substring(0, index))] = Uri.decode(pair.substring(index + 1))
         }
-        val accessToken = values["access_token"]
-        val refreshToken = values["refresh_token"]
-        if (!accessToken.isNullOrBlank() && !refreshToken.isNullOrBlank()) {
-            val email = values["email"] ?: currentSession()?.email
-            saveSession(accessToken, refreshToken, email)
-            return AuthResult.SignedIn(email)
-        }
         values["payment"]?.let { return AuthResult.PaymentReturned(it) }
-        return if (values["type"] == "recovery") AuthResult.RecoveryReady
-        else if (values["type"] == "signup") AuthResult.ConfirmationSent
-        else AuthResult.Failed("Abra o link novamente ou entre com seu e-mail e senha.")
+        // Schemes Android personalizados podem ser reivindicados por outro app.
+        // Por isso este APK não aceita tokens de sessão vindos do deep link. O fluxo
+        // atual usa login direto; recuperação/confirmação voltam apenas após App Links
+        // HTTPS verificados serem configurados com um domínio próprio.
+        return AuthResult.Failed("Retorno por e-mail indisponível nesta versão. Entre com e-mail e senha.")
     }
 
     private suspend fun request(
