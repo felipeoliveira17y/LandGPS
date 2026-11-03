@@ -30,6 +30,18 @@ import android.webkit.ValueCallback
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
+import com.landmensure.gps.service.AuthResult
+import com.landmensure.gps.service.CheckoutResult
+import com.landmensure.gps.service.StripePaymentService
+import com.landmensure.gps.service.SubscriptionPlan
+import com.landmensure.gps.service.SupabaseAuthService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
@@ -55,6 +67,9 @@ class MainActivity : Activity() {
     private var lastPdop = -1.0
     private var lastVdop = -1.0
     private var lastNmeaSatUsed = -1
+    private lateinit var authService: SupabaseAuthService
+    private val accountScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var pendingAuthResult: AuthResult? = null
 
     private val nmeaListener = OnNmeaMessageListener { message, _ ->
         parseNmea(message)
@@ -147,6 +162,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        authService = SupabaseAuthService(applicationContext)
         window.setDecorFitsSystemWindows(false)
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
@@ -184,7 +200,15 @@ class MainActivity : Activity() {
         webView.settings.allowFileAccess = true
         webView.settings.allowContentAccess = true
         webView.settings.allowFileAccessFromFileURLs = true
-        webView.webViewClient = WebViewClient()
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                pendingAuthResult?.let {
+                    pendingAuthResult = null
+                    publishAuthResult(it)
+                } ?: publishAccountState()
+            }
+        }
         webView.webChromeClient = object : WebChromeClient() {
             override fun onShowFileChooser(
                 view: WebView?,
@@ -216,9 +240,57 @@ class MainActivity : Activity() {
         }
         webView.addJavascriptInterface(AndroidBridge(), "Android")
         webView.loadUrl("file:///android_asset/index.html")
+        handleAuthCallback(intent)
     }
 
     inner class AndroidBridge {
+        @JavascriptInterface fun getAccountState() { runOnUiThread { publishAccountState() } }
+        @JavascriptInterface fun signUp(email: String, password: String) {
+            accountScope.launch {
+                publishAuthResult(withContext(Dispatchers.IO) { authService.signUp(email, password) })
+            }
+        }
+        @JavascriptInterface fun signIn(email: String, password: String) {
+            accountScope.launch {
+                publishAuthResult(withContext(Dispatchers.IO) { authService.signIn(email, password) })
+            }
+        }
+        @JavascriptInterface fun requestPasswordRecovery(email: String) {
+            accountScope.launch {
+                publishAuthResult(withContext(Dispatchers.IO) { authService.sendPasswordRecovery(email) })
+            }
+        }
+        @JavascriptInterface fun updatePassword(password: String) {
+            accountScope.launch {
+                publishAuthResult(withContext(Dispatchers.IO) { authService.updatePassword(password) })
+            }
+        }
+        @JavascriptInterface fun signOut() {
+            accountScope.launch {
+                publishAuthResult(withContext(Dispatchers.IO) { authService.signOut() })
+            }
+        }
+        @JavascriptInterface fun subscribe(plan: String) {
+            val selectedPlan = when (plan) {
+                "weekly" -> SubscriptionPlan.WEEKLY
+                "monthly" -> SubscriptionPlan.MONTHLY
+                "yearly" -> SubscriptionPlan.YEARLY
+                else -> {
+                    runOnUiThread { publishCheckoutResult(CheckoutResult.Failed("Plano inválido.")) }
+                    return
+                }
+            }
+            accountScope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    StripePaymentService().startCheckout(
+                        this@MainActivity,
+                        authService.currentSession()?.accessToken,
+                        selectedPlan,
+                    )
+                }
+                publishCheckoutResult(result)
+            }
+        }
         @JavascriptInterface fun openExternal(url: String) { runOnUiThread {
             try {
                 val cleanUrl = url.trim()
@@ -421,6 +493,49 @@ class MainActivity : Activity() {
     private fun sendLocationError(message: String) { val s=js(message); webView.evaluateJavascript("receiveNativeLocationError('$s')", null) }
     private fun js(s:String)=s.replace("\\","\\\\").replace("'","\\'").replace("\n"," ")
 
+    private fun publishAccountState() {
+        val session = authService.currentSession()
+        sendAccountEvent("state", if (session == null) "Você ainda não entrou em uma conta." else "Sessão ativa.", session?.email, session != null)
+    }
+
+    private fun publishAuthResult(result: AuthResult) {
+        when (result) {
+            is AuthResult.SignedIn -> sendAccountEvent("signed_in", "Conta conectada.", result.email, true)
+            AuthResult.ConfirmationSent -> sendAccountEvent("confirmation_sent", "Confira seu e-mail para confirmar a conta.", null, false)
+            AuthResult.SignedOut -> sendAccountEvent("signed_out", "Você saiu da conta.", null, false)
+            is AuthResult.RecoverySent -> sendAccountEvent("recovery_sent", "Enviamos as instruções para ${result.email}.", result.email, false)
+            AuthResult.RecoveryReady -> sendAccountEvent("recovery_ready", "Defina a sua nova senha.", authService.currentSession()?.email, true)
+            AuthResult.PasswordUpdated -> sendAccountEvent("password_updated", "Senha atualizada.", authService.currentSession()?.email, true)
+            is AuthResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
+        }
+    }
+
+    private fun publishCheckoutResult(result: CheckoutResult) {
+        when (result) {
+            CheckoutResult.Opened -> sendAccountEvent("checkout_opened", "O pagamento foi aberto no navegador.", authService.currentSession()?.email, true)
+            CheckoutResult.NotAuthenticated -> sendAccountEvent("error", "Entre na sua conta antes de assinar.", null, false)
+            is CheckoutResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
+        }
+    }
+
+    private fun sendAccountEvent(type: String, message: String, email: String?, signedIn: Boolean) {
+        if (!::webView.isInitialized) return
+        val encodedEmail = email?.let { JSONObject.quote(it) } ?: "null"
+        val payload = "{type:${JSONObject.quote(type)},message:${JSONObject.quote(message)},email:$encodedEmail,signedIn:$signedIn}"
+        webView.evaluateJavascript("window.receiveAccountEvent&&window.receiveAccountEvent($payload)", null)
+    }
+
+    private fun handleAuthCallback(callbackIntent: Intent?) {
+        val result = callbackIntent?.data?.let(authService::importSessionFromDeepLink) ?: return
+        pendingAuthResult = result
+        if (::webView.isInitialized) webView.postDelayed({
+            pendingAuthResult?.let {
+                pendingAuthResult = null
+                publishAuthResult(it)
+            }
+        }, 600)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == locationRequestCode) {
@@ -431,6 +546,8 @@ class MainActivity : Activity() {
     }
     override fun onResume() { super.onResume(); if (::locationManager.isInitialized && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED) startLiveTracking() }
     override fun onPause() { super.onPause(); if (::locationManager.isInitialized && tracking) { runCatching{locationManager.removeUpdates(liveListener)}; runCatching{locationManager.unregisterGnssStatusCallback(gnssCallback)}; runCatching{locationManager.removeNmeaListener(nmeaListener)}; tracking=false } }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleAuthCallback(intent) }
+    override fun onDestroy() { accountScope.cancel(); super.onDestroy() }
     @Deprecated("Deprecated in Java") override fun onBackPressed() { if (webView.canGoBack()) webView.goBack() else super.onBackPressed() }
 
     @Deprecated("Deprecated in Java")

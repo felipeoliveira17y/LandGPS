@@ -60,6 +60,7 @@ dependencies {
 
     // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Supabase Auth
     implementation(platform("io.github.jan-tennert.supabase:bom:2.4.0"))
