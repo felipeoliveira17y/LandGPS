@@ -146,6 +146,14 @@
     });
   }
 
+  function announceAccountState() {
+    window.dispatchEvent(
+      new CustomEvent("landmensure:account-state", {
+        detail: { signedIn: model.signedIn, pro: model.pro },
+      }),
+    );
+  }
+
   window.landmensureAccount = {
     openGate,
     openPlans,
@@ -213,6 +221,7 @@
           detail: { pro: model.pro },
         }),
       );
+      announceAccountState();
       if (model.signedIn) closeGate();
       else openGate(false);
       renderAccount();
@@ -222,6 +231,7 @@
       model.signedIn = true;
       model.email = event.email || "";
       model.recovery = false;
+      announceAccountState();
       closeGate();
       closePlans();
       renderAccount();
@@ -232,6 +242,7 @@
       model.signedIn = false;
       model.email = "";
       model.recovery = false;
+      announceAccountState();
       closeAccount();
       closePlans();
       openGate(false);
@@ -327,7 +338,8 @@
       return false;
     };
     applyProRestrictions();
-    if (native()) window.Android.getAccountState();
-    else openGate();
+    // A conta é a primeira tela do aplicativo. Se houver uma sessão salva, a
+    // resposta nativa fecha esta tela logo em seguida; sem sessão, o login fica visível.
+    openGate();
   });
 })();

@@ -1386,8 +1386,7 @@
       <iframe
         id="memorialFrame"
         title="Calculadora de área e memorial KML"
-        src="file:///android_asset/memorial/index.html"
-        allow="geolocation"
+        src="https://appassets.androidplatform.net/assets/memorial/index.html"
         onload="
           this.contentWindow.postMessage(
             {
@@ -2866,23 +2865,20 @@
         document.getElementById(id).addEventListener("input", salvarRascunho),
       );
       atualizarDados();
-      setTimeout(() => {
-        if (window.Android && typeof Android.startLiveLocation === "function") {
-          Android.startLiveLocation();
-        } else if (navigator.geolocation) {
-          navigator.geolocation.watchPosition(
-            (p) =>
-              receiveLiveLocation(
-                p.coords.latitude,
-                p.coords.longitude,
-                p.coords.accuracy,
-                p.timestamp,
-              ),
-            (e) => receiveLiveStatus("GPS: " + e.message),
-            { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 },
-          );
-        }
-      }, 500);
+      let rastreamentoInicializado = false;
+      function iniciarRastreamentoDaConta() {
+        if (
+          rastreamentoInicializado ||
+          !window.Android ||
+          typeof Android.startLiveLocation !== "function"
+        )
+          return;
+        rastreamentoInicializado = true;
+        Android.startLiveLocation();
+      }
+      window.addEventListener("landmensure:account-state", (event) => {
+        if (event.detail?.signedIn) iniciarRastreamentoDaConta();
+      });
     </script>
   </body>
 </html>
