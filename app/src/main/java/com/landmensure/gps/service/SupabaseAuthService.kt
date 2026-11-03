@@ -1,7 +1,6 @@
 package com.landmensure.gps.service
 
 import android.content.Context
-import android.net.Uri
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.landmensure.gps.BuildConfig
@@ -125,9 +124,6 @@ class SupabaseAuthService(context: Context) {
         return request("signup", buildJsonObject {
             put("email", email.trim())
             put("password", password)
-            put("options", buildJsonObject {
-                put("emailRedirectTo", AUTH_CALLBACK)
-            })
         }) { root ->
             val session = root["session"]?.jsonObject
             if (session != null) {
@@ -152,12 +148,7 @@ class SupabaseAuthService(context: Context) {
     }
 
     suspend fun sendPasswordRecovery(email: String): AuthResult {
-        if (!isConfigured()) return notConfigured()
-        if (!AccountCredentials.isValidEmail(email)) return AuthResult.Failed("Informe um e-mail válido.")
-        return request("recover", buildJsonObject {
-            put("email", email.trim())
-            put("redirect_to", AUTH_CALLBACK)
-        }) { AuthResult.RecoverySent(email.trim()) }
+        return AuthResult.Failed("Recuperação de senha será liberada quando o domínio seguro do aplicativo estiver configurado.")
     }
 
     suspend fun updatePassword(password: String): AuthResult {
@@ -175,22 +166,6 @@ class SupabaseAuthService(context: Context) {
         }
         clearSession()
         return AuthResult.SignedOut
-    }
-
-    fun importSessionFromDeepLink(uri: Uri): AuthResult? {
-        if (uri.scheme != "gpslandmensure" || uri.host != "auth-callback") return null
-        val values = linkedMapOf<String, String>()
-        uri.queryParameterNames.forEach { key -> uri.getQueryParameter(key)?.let { values[key] = it } }
-        uri.fragment?.split("&")?.forEach { pair ->
-            val index = pair.indexOf('=')
-            if (index > 0) values[Uri.decode(pair.substring(0, index))] = Uri.decode(pair.substring(index + 1))
-        }
-        values["payment"]?.let { return AuthResult.PaymentReturned(it) }
-        // Schemes Android personalizados podem ser reivindicados por outro app.
-        // Por isso este APK não aceita tokens de sessão vindos do deep link. O fluxo
-        // atual usa login direto; recuperação/confirmação voltam apenas após App Links
-        // HTTPS verificados serem configurados com um domínio próprio.
-        return AuthResult.Failed("Retorno por e-mail indisponível nesta versão. Entre com e-mail e senha.")
     }
 
     private suspend fun request(
@@ -256,7 +231,6 @@ class SupabaseAuthService(context: Context) {
         AccountCredentials.isValidEmail(email) && AccountCredentials.isStrongPassword(password)
 
     private companion object {
-        const val AUTH_CALLBACK = "gpslandmensure://auth-callback"
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_REFRESH_TOKEN = "refresh_token"
         const val KEY_EMAIL = "email"

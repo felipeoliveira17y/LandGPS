@@ -73,7 +73,6 @@ class MainActivity : Activity() {
     private var lastNmeaSatUsed = -1
     private lateinit var authService: SupabaseAuthService
     private val accountScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private var pendingAuthResult: AuthResult? = null
 
     private val nmeaListener = OnNmeaMessageListener { message, _ ->
         parseNmea(message)
@@ -227,10 +226,7 @@ class MainActivity : Activity() {
             }
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                pendingAuthResult?.let {
-                    pendingAuthResult = null
-                    publishAuthResult(it)
-                } ?: refreshAccountState()
+                refreshAccountState()
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
@@ -264,7 +260,6 @@ class MainActivity : Activity() {
         }
         webView.addJavascriptInterface(AndroidBridge(), "Android")
         webView.loadUrl("https://appassets.androidplatform.net/assets/index.html")
-        handleAuthCallback(intent)
     }
 
     inner class AndroidBridge {
@@ -614,7 +609,7 @@ class MainActivity : Activity() {
 
     private fun publishCheckoutResult(result: CheckoutResult) {
         when (result) {
-            CheckoutResult.Opened -> sendAccountEvent("checkout_opened", "O pagamento foi aberto no navegador.", authService.currentSession()?.email, true)
+            CheckoutResult.Opened -> sendAccountEvent("checkout_opened", "O pagamento foi aberto no navegador. Ao terminar, volte ao Landmensure para atualizar seu plano.", authService.currentSession()?.email, true)
             CheckoutResult.NotAuthenticated -> sendAccountEvent("error", "Entre na sua conta antes de assinar.", null, false)
             is CheckoutResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
         }
@@ -625,17 +620,6 @@ class MainActivity : Activity() {
         val encodedEmail = email?.let { JSONObject.quote(it) } ?: "null"
         val payload = "{type:${JSONObject.quote(type)},message:${JSONObject.quote(message)},email:$encodedEmail,signedIn:$signedIn,pro:$pro}"
         webView.evaluateJavascript("window.receiveAccountEvent&&window.receiveAccountEvent($payload)", null)
-    }
-
-    private fun handleAuthCallback(callbackIntent: Intent?) {
-        val result = callbackIntent?.data?.let(authService::importSessionFromDeepLink) ?: return
-        pendingAuthResult = result
-        if (::webView.isInitialized) webView.postDelayed({
-            pendingAuthResult?.let {
-                pendingAuthResult = null
-                publishAuthResult(it)
-            }
-        }, 600)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -660,9 +644,12 @@ class MainActivity : Activity() {
             }
         }
     }
-    override fun onResume() { super.onResume() }
+    override fun onResume() {
+        super.onResume()
+        if (::webView.isInitialized) refreshAccountState()
+    }
     override fun onPause() { super.onPause(); if (::locationManager.isInitialized && tracking) { runCatching{locationManager.removeUpdates(liveListener)}; runCatching{locationManager.unregisterGnssStatusCallback(gnssCallback)}; runCatching{locationManager.removeNmeaListener(nmeaListener)}; tracking=false } }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleAuthCallback(intent) }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) }
     override fun onDestroy() { accountScope.cancel(); super.onDestroy() }
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
