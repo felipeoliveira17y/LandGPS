@@ -6,7 +6,10 @@ val localProperties = Properties().apply {
         propertiesFile.inputStream().use(::load)
     }
 }
-val supabasePublishableKey = localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY", "")
+// No computador do desenvolvedor a chave vem de local.properties. No GitHub Actions,
+// ela vem do Secret SUPABASE_PUBLISHABLE_KEY e nunca é gravada no repositório.
+val supabasePublishableKey = localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY")
+    ?: providers.environmentVariable("SUPABASE_PUBLISHABLE_KEY").orNull.orEmpty()
 
 plugins {
     id("com.android.application")

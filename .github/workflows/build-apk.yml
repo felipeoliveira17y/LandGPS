@@ -11,6 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Baixar o código
         uses: actions/checkout@v7
@@ -32,6 +34,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
           cache-provider: basic
+
+      - name: Validar configuração do Supabase
+        run: |
+          if [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Crie o Secret SUPABASE_PUBLISHABLE_KEY nas configurações do repositório."
+            exit 1
+          fi
 
       - name: Executar testes unitários
         run: gradle --no-daemon testDebugUnitTest
