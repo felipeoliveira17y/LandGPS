@@ -1,6 +1,6 @@
 # GPS Landmensure
 
-Aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. Este README apresenta as funções que já faziam parte do aplicativo e as melhorias incorporadas posteriormente durante o estágio.
+Aplicativo Android para coletar pontos com GPS/GNSS, calcular área e perímetro e gerar memoriais de levantamento. As seções abaixo mostram as funções originais e as melhorias incorporadas durante o estágio.
 
 ## Funcionalidades que o aplicativo já possuía
 
@@ -34,8 +34,7 @@ Aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. Este README 
 - Atualização da identidade visual, com hierarquia mais clara para títulos, cartões, campos e botões.
 - Substituição dos emojis por ícones vetoriais SVG e indicadores de estado mais discretos.
 - Inclusão dos temas claro e escuro e de um painel de **Definições** para escolher coleta padrão, mapa inicial e aparência.
-- Ajuste da área segura para respeitar as barras de status e navegação do Android.
-- Reserva nativa das áreas superior e inferior do sistema para evitar que a barra do aplicativo fique sob os indicadores do Android.
+- Ajuste do layout para respeitar as barras de status e navegação do Android.
 - Adaptação do layout à largura e à orientação da tela, incluindo celulares e telas maiores.
 - Barra superior com acesso às definições e navegação em abas para separar **GNSS** de **Memorial KML**.
 - Integração do módulo de cálculo de área e memorial por KML, com seleção de arquivos e impressão no Android.
@@ -46,3 +45,14 @@ Aplicativo Android para apoiar levantamentos de campo com GPS/GNSS. Este README 
 ## Objetivo das melhorias
 
 As mudanças ampliam a clareza das informações GNSS, facilitam o acesso às ações de campo e ajudam a proteger os dados coletados, preservando a função principal do GPS Landmensure: apoiar a coleta, a visualização e a organização de pontos de levantamentos.
+
+## Compatibilidade
+
+O aplicativo requer **Android 14 ou superior**. Para coletar pontos por GNSS, permita o acesso à localização precisa. A coleta funciona com o aplicativo aberto em primeiro plano.
+
+## Estrutura do repositório
+
+- [app/](app/) — código Android, interface, módulo Memorial KML e testes.
+- [brand/](brand/) — logotipos e guia de identidade visual.
+- [supabase/](supabase/) — banco de dados e funções de assinatura.
+- [.github/workflows/](.github/workflows/) — automações do GitHub.

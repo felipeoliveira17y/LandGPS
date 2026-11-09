@@ -3,6 +3,13 @@ build/
 app/build/
 local.properties
 
+# Pacotes de distribuição e chaves de assinatura.
+/*.zip
+*.apk
+*.aab
+*.jks
+*.keystore
+
 # Supabase and Stripe secrets must remain outside version control.
 supabase/.env
 supabase/functions/.env
