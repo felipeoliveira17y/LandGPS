@@ -370,6 +370,47 @@
         font-size: 12px;
         font-weight: 650;
       }
+      .capture-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .capture-controls label {
+        min-width: 0;
+      }
+      .capture-controls select {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        margin-top: 4px;
+        padding: 6px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        color: var(--ink);
+        background: var(--surface);
+        font: inherit;
+      }
+      .signal-details {
+        margin-top: 10px;
+        border-top: 1px solid var(--line);
+      }
+      .signal-details summary {
+        cursor: pointer;
+        padding: 11px 0;
+        color: var(--navy);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .field-notice {
+        margin: 8px 0 0;
+        color: var(--ink);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+      .field-notice:empty {
+        margin: 0;
+      }
       .hint {
         font-size: 12px;
         color: var(--muted);
@@ -788,24 +829,6 @@
         display: block;
         color: var(--navy);
         font-size: 13px;
-        font-weight: 850;
-      }
-      .action-heading small {
-        display: block;
-        color: var(--muted);
-        font-size: 11px;
-        margin-top: 2px;
-      }
-      .action-symbol {
-        display: grid;
-        place-items: center;
-        width: 32px;
-        height: 32px;
-        flex: none;
-        border-radius: 10px;
-        background: #eaf1f5;
-        color: var(--navy);
-        font-size: 11px;
         font-weight: 850;
       }
       .action-buttons {
@@ -1371,6 +1394,7 @@
       <button
         class="app-tab active"
         data-page="gnss"
+        aria-current="page"
         onclick="mostrarTela('gnss')"
       >
         <span>GNSS</span><small>Coleta de campo</small></button
@@ -1426,9 +1450,44 @@
         <div class="card project">
           <input
             id="projeto"
-            placeholder="Nome do levantamento / propriedade"
-          /><input id="responsavel" placeholder="Responsável / cliente" />
+            aria-label="Nome do levantamento"
+            placeholder="Nome do levantamento"
+          /><input
+            id="responsavel"
+            aria-label="Responsável ou cliente"
+            placeholder="Responsável ou cliente"
+          />
         </div>
+        <section class="card" aria-labelledby="captureTitle">
+          <h2 class="livehead" id="captureTitle">Coleta de campo</h2>
+          <div class="capture-controls">
+            <label class="liveitem" for="tempoColeta">
+              <b>Modo de coleta</b>
+              <select id="tempoColeta">
+                <option value="0">Instantâneo</option>
+                <option value="15">Média de 15 s</option>
+                <option value="30" selected>Média de 30 s</option>
+                <option value="60">Média de 60 s</option>
+                <option value="120">Média de 120 s</option>
+                <option value="121">Ponto ajustado • 120 s</option>
+              </select>
+            </label>
+            <div class="liveitem">
+              <b>Coleta</b><span id="ocupacaoStatus">Pronto</span>
+            </div>
+          </div>
+          <p class="hint" id="captureHint">Na coleta por tempo, mantenha o celular parado sobre o ponto até terminar.</p>
+          <div class="action-buttons">
+            <button id="btnColetar" onclick="capturar()" aria-describedby="captureHint">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
+                <circle cx="12" cy="10" r="2.5" />
+              </svg>
+              Coletar ponto
+            </button>
+          </div>
+          <p class="field-notice" id="captureNotice" role="status"></p>
+        </section>
         <div class="card" id="gpsfix">
           <div class="livehead">
             <svg
@@ -1441,8 +1500,9 @@
               <circle cx="12" cy="12" r="5" />
               <path d="M12 12l6-6M12 3v2M3 12h2" />
             </svg>
-            Coordenadas GPS/GNSS em tempo real
+            Posição atual
           </div>
+          <p class="liveok" id="liveStatus">Toque em “Coletar ponto” para iniciar o GPS.</p>
           <div class="livegrid">
             <div class="liveitem">
               <b>Latitude decimal</b><span id="liveLat">--</span>
@@ -1451,130 +1511,46 @@
               <b>Longitude decimal</b><span id="liveLng">--</span>
             </div>
             <div class="liveitem">
-              <b>UTM E (X)</b><span id="liveE">--</span>
-            </div>
-            <div class="liveitem">
-              <b>UTM N (Y)</b><span id="liveN">--</span>
-            </div>
-            <div class="liveitem">
-              <b>Zona UTM</b><span id="liveZona">--</span>
-            </div>
-            <div class="liveitem">
-              <b>Acurácia estimada (raio)</b><span id="liveAcc">--</span>
-            </div>
-            <div class="liveitem">
-              <b>Satélites visíveis</b><span id="satVisible">--</span>
-            </div>
-            <div class="liveitem">
-              <b>Satélites usados</b><span id="satUsed">--</span>
-            </div>
-            <div class="liveitem">
-              <b>HDOP (NMEA)</b><span id="hdop">--</span>
-            </div>
-            <div class="liveitem">
-              <b>PDOP (NMEA)</b><span id="pdop">--</span>
+              <b>Acurácia estimada</b><span id="liveAcc">--</span>
             </div>
             <div class="liveitem">
               <b>Estabilidade</b><span id="stability">Aguardando</span>
             </div>
           </div>
-          <div class="hint">
-            A acurácia horizontal é uma estimativa do Android, não uma garantia
-            de precisão do levantamento. Confira as condições e os resultados
-            antes de uso técnico.
-          </div>
-          <div class="liveok" id="liveStatus">Aguardando GPS/GNSS…</div>
-        </div>
-        <div class="card">
-          <div class="livehead">
-            <svg
-              class="icon"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 7v5l3 2" />
-            </svg>
-            Modo de coleta do vértice
-          </div>
-          <div
-            style="
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 8px;
-              align-items: center;
-            "
-          >
-            <select
-              id="tempoColeta"
-              style="
-                padding: 11px;
-                border: 1px solid #d0d5dd;
-                border-radius: 9px;
-                font-weight: 700;
-              "
-            >
-              <option value="0">Instantâneo</option>
-              <option value="15">Média de 15 s</option>
-              <option value="30" selected>Média de 30 s</option>
-              <option value="60">Média de 60 s</option>
-              <option value="120">Média de 120 s</option>
-              <option value="121">Ponto ajustado • 120 s</option>
-            </select>
-            <div class="liveitem">
-              <b>Ocupação</b><span id="ocupacaoStatus">Pronto</span>
+          <p class="hint">O Android estima a acurácia. Confira os pontos antes do uso técnico.</p>
+          <details class="signal-details">
+            <summary>Detalhes do sinal e coordenadas UTM</summary>
+            <div class="livegrid">
+              <div class="liveitem">
+                <b>UTM E (X)</b><span id="liveE">--</span>
+              </div>
+              <div class="liveitem">
+                <b>UTM N (Y)</b><span id="liveN">--</span>
+              </div>
+              <div class="liveitem">
+                <b>Zona UTM</b><span id="liveZona">--</span>
+              </div>
+              <div class="liveitem">
+                <b>Satélites visíveis</b><span id="satVisible">--</span>
+              </div>
+              <div class="liveitem">
+                <b>Satélites usados</b><span id="satUsed">--</span>
+              </div>
+              <div class="liveitem">
+                <b>HDOP (NMEA)</b><span id="hdop">--</span>
+              </div>
+              <div class="liveitem">
+                <b>PDOP (NMEA)</b><span id="pdop">--</span>
+              </div>
             </div>
-          </div>
-          <div class="hint">
-            Na coleta por média, mantenha o aparelho parado sobre o vértice. Em
-            Ponto ajustado (120 s), o app filtra discrepâncias, calcula média
-            ponderada e apresenta RMS, desvio, erro-padrão, R95 e DOP. A
-            acurácia Android é mantida separada.
-          </div>
+            <p class="hint" id="lastCaptureQuality" hidden></p>
+          </details>
         </div>
         <div class="card action-groups">
           <section class="action-group">
             <div class="action-heading">
-              <span class="action-symbol">01</span>
               <div>
-                <b>Coleta e GNSS</b><small>Marque e confira posições</small>
-              </div>
-            </div>
-            <div class="action-buttons">
-              <button id="btnColetar" onclick="capturar()">
-                <svg
-                  class="icon"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-                  <circle cx="12" cy="10" r="2.5" />
-                </svg>
-                Coletar ponto</button
-              ><button class="blue" onclick="abrirSatelites()">
-                <svg
-                  class="icon"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  focusable="false"
-                >
-                  <path
-                    d="M4 20l5-5M7 4l13 13M8 3l3 3-4 4-3-3zM17 14l4 4-4 4-4-4z"
-                  />
-                  <path d="M14 5a5 5 0 0 1 5 5M14 2a8 8 0 0 1 8 8" />
-                </svg>
-                Satélites GNSS
-              </button>
-            </div>
-          </section>
-          <section class="action-group">
-            <div class="action-heading">
-              <span class="action-symbol">02</span>
-              <div>
-                <b>Mapa e geometria</b
-                ><small>Visualize e organize os vértices</small>
+                <b>Mapa e pontos</b>
               </div>
             </div>
             <div class="action-buttons">
@@ -1589,6 +1565,12 @@
                   <path d="M9 3v15M15 6v15" />
                 </svg>
                 Mapa / Satélite</button
+              ><button class="blue" onclick="abrirSatelites()">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M4 20l5-5M7 4l13 13M8 3l3 3-4 4-3-3zM17 14l4 4-4 4-4-4z" />
+                  <path d="M14 5a5 5 0 0 1 5 5M14 2a8 8 0 0 1 8 8" />
+                </svg>
+                Satélites GNSS</button
               ><button class="navy" onclick="gerarPoligono()">
                 <svg
                   class="icon"
@@ -1620,9 +1602,8 @@
           </section>
           <section class="action-group">
             <div class="action-heading">
-              <span class="action-symbol">03</span>
               <div>
-                <b>Levantamentos</b><small>Salve, abra ou faça backup</small>
+                <b>Levantamentos</b>
               </div>
             </div>
             <div class="action-buttons">
@@ -1649,7 +1630,7 @@
                   />
                   <path d="M3 10h18" />
                 </svg>
-                Abrir salvo</button
+                Abrir levantamento</button
               ><button class="gray" onclick="exportBackup()">
                 <svg
                   class="icon"
@@ -1659,7 +1640,7 @@
                 >
                   <path d="M4 4h16v4H4zM5 8v12h14V8M10 12h4" />
                 </svg>
-                Backup</button
+                Criar backup</button
               ><button
                 class="gray"
                 onclick="document.getElementById('importBackupFile').click()"
@@ -1691,16 +1672,14 @@
                     d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8M13 3v7h7M17 16v6M14 19h6"
                   />
                 </svg>
-                Novo / Limpar
+                Novo levantamento
               </button>
             </div>
           </section>
           <section class="action-group">
             <div class="action-heading">
-              <span class="action-symbol">04</span>
               <div>
-                <b>Exportar e imprimir</b
-                ><small>Gere arquivos e memorial</small>
+                <b>Exportar e imprimir</b>
               </div>
             </div>
             <div class="action-buttons">
@@ -1756,12 +1735,11 @@
           <div class="stat"><b>Perímetro</b><span id="per">0</span> m</div>
         </div>
         <div id="map"></div>
-        <div class="hint">
-          Após coletar 3 ou mais pontos, gere o polígono. Toque em “Editar” na
-          tabela para renomear um vértice. O KML exporta pontos e polígono.
-        </div>
-        <div class="card table-wrap">
-          <table>
+        <p class="hint" id="mapHint">Os pontos coletados aparecem no mapa.</p>
+        <section class="card table-wrap" aria-labelledby="pointsTitle">
+          <h3 id="pointsTitle">Pontos do levantamento</h3>
+          <p class="hint" id="pointsEmpty">Toque em “Coletar ponto” para adicionar o primeiro.</p>
+          <table id="pointsTable" hidden>
             <thead>
               <tr>
                 <th>Vértice</th>
@@ -1777,7 +1755,7 @@
             </thead>
             <tbody id="tb"></tbody>
           </table>
-        </div>
+        </section>
         <div class="card">
           <h3>Memorial do levantamento</h3>
           <div id="memorial"></div>
@@ -2226,7 +2204,7 @@
         );
       }
       function gerarPoligono() {
-        if (pontos.length < 3) return alert("Colete pelo menos 3 pontos.");
+        if (pontos.length < 3) return alert("Para gerar o polígono, colete pelo menos três pontos.");
         normalizarNomes();
         poligonoGerado = true;
         if (poly) map.removeLayer(poly);
@@ -2243,6 +2221,14 @@
           poly = null;
         }
         let tb = document.getElementById("tb");
+        const temPontos = pontos.length > 0;
+        document.getElementById("pointsEmpty").hidden = temPontos;
+        document.getElementById("pointsTable").hidden = !temPontos;
+        document.getElementById("mapHint").textContent = poligonoGerado
+          ? "Use “Editar” na tabela para renomear um ponto."
+          : pontos.length >= 3
+            ? "Toque em “Gerar polígono” para fechar o contorno no mapa."
+            : "Colete pelo menos três pontos para fechar um contorno.";
         tb.innerHTML = "";
         pontos.forEach((p, i) => {
           let u = converterUTM(p.lat, p.lng),
@@ -2269,7 +2255,9 @@
           mem += "<br>";
         });
         mem += `<hr><b>Área:</b> ${area.toFixed(2)} m² (${(area / 10000).toFixed(4)} ha)<br><b>Perímetro:</b> ${per.toFixed(2)} m`;
-        document.getElementById("memorial").innerHTML = mem;
+        document.getElementById("memorial").innerHTML = temPontos
+          ? mem
+          : '<p class="hint">O memorial aparece aqui conforme você coleta pontos.</p>';
         salvarRascunho();
       }
       function areaEl() {
@@ -2288,7 +2276,7 @@
           lng < -180 ||
           lng > 180
         )
-          return alert("O GPS retornou coordenadas inválidas.");
+          return false;
         document.getElementById("acc").textContent =
           acc >= 0 ? Number(acc).toFixed(1) : "-";
         pontos.push({
@@ -2306,6 +2294,7 @@
         }
         map.setView([lat, lng], 19);
         atualizarDados();
+        return true;
       }
       function receiveLiveLocation(lat, lng, acc, time) {
         lat = Number(lat);
@@ -2323,8 +2312,9 @@
         document.getElementById("liveN").textContent = u.y + " m";
         document.getElementById("liveZona").textContent = u.zona;
         document.getElementById("liveAcc").textContent = acc.toFixed(1) + " m";
-        document.getElementById("liveStatus").textContent =
-          "Posição atualizada em tempo real • o botão Coletar ponto grava exatamente esta posição";
+        const status = document.getElementById("liveStatus");
+        if (status.textContent !== "Recebendo posição do GPS.")
+          status.textContent = "Recebendo posição do GPS.";
         document.getElementById("acc").textContent = acc.toFixed(1);
         if (liveMarker) liveMarker.setLatLng([lat, lng]);
         else
@@ -2337,15 +2327,17 @@
             .bindTooltip("Posição atual");
       }
       function receiveCapturedLocation(lat, lng, acc, time) {
-        adicionarPontoGPS(lat, lng, acc);
-        finalizarOcupacao();
+        if (!adicionarPontoGPS(lat, lng, acc)) {
+          receiveNativeLocationError("O GPS enviou uma posição inválida. Tente coletar o ponto novamente.");
+          return;
+        }
+        finalizarOcupacao("Ponto salvo", "Ponto adicionado ao levantamento.");
       }
       function receiveLiveStatus(msg) {
         document.getElementById("liveStatus").textContent = msg;
       }
       function receiveNativeLocationError(msg) {
-        finalizarOcupacao();
-        alert(msg);
+        finalizarOcupacao("Pronto para tentar de novo", msg);
       }
       let satelliteDetails = [];
       function mostrarTela(tela) {
@@ -2440,8 +2432,8 @@
           p.textContent = Number(pdop) > 0 ? Number(pdop).toFixed(2) : "--";
       }
       function receiveOccupationProgress(elapsed, total, samples, acc) {
-        let e = document.getElementById("ocupacaoStatus");
-        e.textContent = `${elapsed}/${total} s • ${samples} amostras${Number.isFinite(Number(acc)) ? " • " + Number(acc).toFixed(1) + " m" : ""}`;
+        const status = document.getElementById("ocupacaoStatus");
+        status.textContent = `${elapsed} de ${total} s • ${samples} ${Number(samples) === 1 ? "leitura" : "leituras"}`;
       }
       function receiveOccupationResult(
         lat,
@@ -2455,16 +2447,7 @@
         hdop,
         pdop,
       ) {
-        document.getElementById("ocupacaoStatus").innerHTML =
-          `Concluído • ${samples} válidas • RMS ${Number(spread).toFixed(2)} m • DP ${Number(std).toFixed(2)} m • EP ${Number(sem).toFixed(2)} m • R95 ${Number(r95).toFixed(2)} m${Number(hdop) > 0 ? " • HDOP " + Number(hdop).toFixed(2) : ""}`;
-        let st = document.getElementById("stability");
-        st.innerHTML =
-          Number(r95) <= 1.5
-            ? '<span class="quality-dot quality-good"></span> Estável'
-            : Number(r95) <= 3
-              ? '<span class="quality-dot quality-mid"></span> Regular'
-              : '<span class="quality-dot quality-low"></span> Instável';
-        adicionarPontoGPS(lat, lng, acc, {
+        const saved = adicionarPontoGPS(lat, lng, acc, {
           samples: Number(samples),
           rms: Number(spread),
           std: Number(std),
@@ -2473,10 +2456,26 @@
           hdop: Number(hdop),
           pdop: Number(pdop),
         });
-        document.getElementById("btnColetar").disabled = false;
+        if (!saved) {
+          receiveNativeLocationError("O GPS enviou uma posição inválida. Tente coletar o ponto novamente.");
+          return;
+        }
+        const quality = document.getElementById("lastCaptureQuality");
+        quality.textContent = `Última coleta por tempo: ${samples} leituras válidas. RMS ${Number(spread).toFixed(2)} m, DP ${Number(std).toFixed(2)} m, EP ${Number(sem).toFixed(2)} m, R95 ${Number(r95).toFixed(2)} m${Number(hdop) > 0 ? ", HDOP " + Number(hdop).toFixed(2) : ""}.`;
+        quality.hidden = false;
+        let st = document.getElementById("stability");
+        st.innerHTML =
+          Number(r95) <= 1.5
+            ? '<span class="quality-dot quality-good"></span> Estável'
+            : Number(r95) <= 3
+              ? '<span class="quality-dot quality-mid"></span> Regular'
+              : '<span class="quality-dot quality-low"></span> Instável';
+        finalizarOcupacao("Ponto salvo", "Ponto adicionado ao levantamento.");
       }
-      function finalizarOcupacao() {
+      function finalizarOcupacao(status, message) {
         document.getElementById("btnColetar").disabled = false;
+        document.getElementById("ocupacaoStatus").textContent = status;
+        document.getElementById("captureNotice").textContent = message;
       }
       function capturar() {
         let segundos = Number(
@@ -2485,11 +2484,12 @@
         const pontoAjustado = segundos === 121;
         if (pontoAjustado) segundos = 120;
         let btn = document.getElementById("btnColetar");
+        if (btn.disabled) return;
+        btn.disabled = true;
+        document.getElementById("ocupacaoStatus").textContent = "Iniciando…";
+        document.getElementById("captureNotice").textContent = "";
         if (window.Android) {
-          btn.disabled = true;
           if (segundos > 0 && typeof Android.startOccupation === "function") {
-            document.getElementById("ocupacaoStatus").textContent =
-              "Iniciando…";
             Android.startOccupation(segundos, pontoAjustado);
             return;
           }
@@ -2499,15 +2499,13 @@
           }
         }
         if (segundos > 0)
-          return alert(
-            "A coleta por média está disponível no aplicativo Android.",
-          );
+          return receiveNativeLocationError("Abra o app no Android para coletar por tempo.");
         if (liveFix && Date.now() - liveFix.time < 3000) {
-          adicionarPontoGPS(liveFix.lat, liveFix.lng, liveFix.acc);
+          receiveCapturedLocation(liveFix.lat, liveFix.lng, liveFix.acc);
           return;
         }
         if (!navigator.geolocation)
-          return alert("GPS não disponível neste dispositivo.");
+          return receiveNativeLocationError("Este dispositivo não forneceu a localização.");
         navigator.geolocation.getCurrentPosition(
           (pos) => {
             receiveLiveLocation(
@@ -2516,13 +2514,15 @@
               pos.coords.accuracy,
               pos.timestamp,
             );
-            adicionarPontoGPS(
+            receiveCapturedLocation(
               pos.coords.latitude,
               pos.coords.longitude,
               pos.coords.accuracy,
             );
           },
-          (e) => alert("Não foi possível obter a localização: " + e.message),
+          (e) => receiveNativeLocationError(e.code === 1
+            ? "Permita o acesso à localização para coletar pontos."
+            : "Não conseguimos obter sua posição. Tente de novo em um local aberto."),
           { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
         );
       }
@@ -2714,7 +2714,7 @@
         reader.readAsText(file);
       }
       function salvarLevantamento() {
-        if (!pontos.length) return alert("Nenhum ponto coletado.");
+        if (!pontos.length) return alert("Colete um ponto antes de salvar o levantamento.");
         let nome =
           document.getElementById("projeto").value.trim() ||
           prompt(
@@ -2741,7 +2741,7 @@
       function carregarLevantamento() {
         let db = lerLevantamentos(),
           ks = Object.keys(db);
-        if (!ks.length) return alert("Nenhum levantamento salvo.");
+        if (!ks.length) return alert("Você ainda não salvou levantamentos neste aparelho.");
         let nome = prompt(
           "Digite exatamente o nome do levantamento:\n\n" + ks.join("\n"),
         );

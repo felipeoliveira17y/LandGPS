@@ -17,24 +17,10 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-
-data class AccountSession(val accessToken: String, val refreshToken: String, val email: String?)
-
-sealed interface AuthResult {
-    data class SignedIn(val email: String?) : AuthResult
-    data object ConfirmationSent : AuthResult
-    data object SignedOut : AuthResult
-    data class RecoverySent(val email: String) : AuthResult
-    data object RecoveryReady : AuthResult
-    data class PaymentReturned(val status: String) : AuthResult
-    data object PasswordUpdated : AuthResult
-    data class Failed(val message: String) : AuthResult
-}
 
 /**
  * Cliente de autenticação por e-mail para o Supabase.
@@ -91,7 +77,9 @@ class SupabaseAuthService(context: Context) {
                     setBody(buildJsonObject { put("refresh_token", session.refreshToken) }.toString())
                 }
                 if (response.status.value !in 200..299) false else {
-                    saveSession(json.parseToJsonElement(response.bodyAsText()).jsonObject, session.email ?: "")
+                    val root = json.parseToJsonElement(response.bodyAsText()).jsonObject
+                    val renewed = readAuthSession(root, session.email.orEmpty()) ?: return@use false
+                    saveSession(renewed)
                     true
                 }
             }
@@ -120,30 +108,27 @@ class SupabaseAuthService(context: Context) {
 
     suspend fun signUp(email: String, password: String): AuthResult {
         if (!isConfigured()) return notConfigured()
-        if (!isValidCredentials(email, password)) return AuthResult.Failed("Informe um e-mail válido. ${AccountCredentials.passwordHint}")
+        if (!AccountCredentials.isValidEmail(email)) return invalidEmail()
+        if (!AccountCredentials.isStrongPassword(password)) return AuthResult.Failed(AccountCredentials.passwordHint, "password")
         return request("signup", buildJsonObject {
             put("email", email.trim())
             put("password", password)
         }) { root ->
-            val session = root["session"]?.jsonObject
-            if (session != null) {
-                saveSession(session, email)
-                AuthResult.SignedIn(email)
-            } else {
-                AuthResult.ConfirmationSent
-            }
+            finishRegistration(root, email, ::saveSession)
         }
     }
 
     suspend fun signIn(email: String, password: String): AuthResult {
         if (!isConfigured()) return notConfigured()
-        if (!AccountCredentials.isValidEmail(email) || password.isBlank()) return AuthResult.Failed("Informe seu e-mail e senha.")
+        if (!AccountCredentials.isValidEmail(email)) return invalidEmail()
+        if (password.isBlank()) return AuthResult.Failed("Digite sua senha para entrar.", "password")
         return request("token?grant_type=password", buildJsonObject {
             put("email", email.trim())
             put("password", password)
         }) { root ->
-            saveSession(root, email)
-            AuthResult.SignedIn(root["user"]?.jsonObject?.get("email")?.jsonPrimitive?.contentOrNull ?: email)
+            val session = readAuthSession(root, email) ?: return@request AuthResult.Failed(INVALID_AUTH_RESPONSE)
+            saveSession(session)
+            AuthResult.SignedIn(session.email)
         }
     }
 
@@ -153,7 +138,7 @@ class SupabaseAuthService(context: Context) {
 
     suspend fun updatePassword(password: String): AuthResult {
         val session = currentSession() ?: return AuthResult.Failed("Faça login novamente para alterar a senha.")
-        if (!AccountCredentials.isStrongPassword(password)) return AuthResult.Failed(AccountCredentials.passwordHint)
+        if (!AccountCredentials.isStrongPassword(password)) return AuthResult.Failed(AccountCredentials.passwordHint, "password")
         return request("user", buildJsonObject { put("password", password) }, session.accessToken, method = "PUT") {
             AuthResult.PasswordUpdated
         }
@@ -170,12 +155,12 @@ class SupabaseAuthService(context: Context) {
 
     private suspend fun request(
         path: String,
-        body: kotlinx.serialization.json.JsonObject,
+        body: JsonObject,
         accessToken: String? = null,
         method: String = "POST",
-        onSuccess: (kotlinx.serialization.json.JsonObject) -> AuthResult = { AuthResult.SignedOut },
+        onSuccess: (JsonObject) -> AuthResult = { AuthResult.SignedOut },
     ): AuthResult {
-        val response = runCatching {
+        val (status, responseBody, errorCode) = runCatching {
             HttpClient(Android).use { client ->
                 val result = if (method == "PUT") client.put("$baseUrl/$path") {
                     commonHeaders(accessToken)
@@ -184,13 +169,17 @@ class SupabaseAuthService(context: Context) {
                     commonHeaders(accessToken)
                     setBody(body.toString())
                 }
-                result.status.value to result.bodyAsText()
+                Triple(result.status.value, result.bodyAsText(), result.headers["x-sb-error-code"])
             }
         }.getOrElse { return AuthResult.Failed("Não foi possível acessar sua conta. Verifique a internet e tente novamente.") }
 
-        if (response.first !in 200..299) return AuthResult.Failed(readError(response.second))
-        return runCatching { onSuccess(json.parseToJsonElement(response.second).jsonObject) }
-            .getOrElse { AuthResult.Failed("A resposta do servidor não pôde ser processada.") }
+        if (status !in 200..299) {
+            val error = runCatching { json.parseToJsonElement(responseBody) as? JsonObject }.getOrNull()
+            val code = error?.stringValue("error_code") ?: errorCode ?: error?.stringValue("code")
+            return authApiFailure(status, code)
+        }
+        return runCatching { onSuccess(json.parseToJsonElement(responseBody).jsonObject) }
+            .getOrElse { AuthResult.Failed(INVALID_AUTH_RESPONSE) }
     }
 
     private fun io.ktor.client.request.HttpRequestBuilder.commonHeaders(accessToken: String?) {
@@ -200,35 +189,17 @@ class SupabaseAuthService(context: Context) {
         accept(ContentType.Application.Json)
     }
 
-    private fun saveSession(root: kotlinx.serialization.json.JsonObject, fallbackEmail: String) {
-        saveSession(
-            root["access_token"]?.jsonPrimitive?.content.orEmpty(),
-            root["refresh_token"]?.jsonPrimitive?.content.orEmpty(),
-            root["user"]?.jsonObject?.get("email")?.jsonPrimitive?.contentOrNull ?: fallbackEmail,
-        )
-    }
-
-    private fun saveSession(accessToken: String, refreshToken: String, email: String?) {
-        if (accessToken.isBlank() || refreshToken.isBlank()) return
+    private fun saveSession(session: AccountSession) {
         prefs.edit()
-            .putString(KEY_ACCESS_TOKEN, accessToken)
-            .putString(KEY_REFRESH_TOKEN, refreshToken)
-            .putString(KEY_EMAIL, email)
+            .putString(KEY_ACCESS_TOKEN, session.accessToken)
+            .putString(KEY_REFRESH_TOKEN, session.refreshToken)
+            .putString(KEY_EMAIL, session.email)
             .apply()
     }
 
-    private fun readError(body: String): String = runCatching {
-        val root = json.parseToJsonElement(body).jsonObject
-        root["msg"]?.jsonPrimitive?.contentOrNull
-            ?: root["message"]?.jsonPrimitive?.contentOrNull
-            ?: root["error_description"]?.jsonPrimitive?.contentOrNull
-            ?: "Não foi possível concluir a solicitação."
-    }.getOrDefault("Não foi possível concluir a solicitação.")
-
     private fun isConfigured() = publishableKey.startsWith("sb_publishable_")
-    private fun notConfigured() = AuthResult.Failed("A chave pública do Supabase ainda não foi configurada neste aplicativo.")
-    private fun isValidCredentials(email: String, password: String) =
-        AccountCredentials.isValidEmail(email) && AccountCredentials.isStrongPassword(password)
+    private fun notConfigured() = AuthResult.Failed("O acesso à conta não está disponível nesta versão. Fale com o suporte.")
+    private fun invalidEmail() = AuthResult.Failed("Confira seu endereço de e-mail e tente de novo.", "email")
 
     private companion object {
         const val KEY_ACCESS_TOKEN = "access_token"

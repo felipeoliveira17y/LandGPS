@@ -53,7 +53,7 @@ class MainActivity : Activity() {
     private val fileChooserRequestCode = 4102
     private lateinit var locationManager: LocationManager
     private val locationRequestCode = 1001
-    private var pendingStart = false
+    private var pendingPointCapture = false
     private var pendingOccupationSeconds: Int? = null
     private var pendingOccupationAdjusted = false
     private var latestFix: Location? = null
@@ -362,7 +362,6 @@ class MainActivity : Activity() {
         @JavascriptInterface fun startOccupation(seconds: Int, adjusted: Boolean = false) { runOnUiThread {
             if (seconds !in listOf(15,30,60,120)) { sendLocationError("Tempo de ocupação inválido."); return@runOnUiThread }
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                pendingStart = true
                 pendingOccupationSeconds = seconds
                 pendingOccupationAdjusted = adjusted
                 requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
@@ -374,7 +373,7 @@ class MainActivity : Activity() {
         @JavascriptInterface fun requestLocation() { // botão Coletar ponto = fotografia da posição AO VIVO atual
             runOnUiThread {
                 if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                    pendingStart = true
+                    pendingPointCapture = true
                     requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
                     return@runOnUiThread
                 }
@@ -472,7 +471,6 @@ class MainActivity : Activity() {
 
     private fun ensurePermissionAndStart() {
         if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            pendingStart = true
             requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
         } else startLiveTracking()
     }
@@ -609,7 +607,7 @@ class MainActivity : Activity() {
                 sendAccountEvent("signed_in", "Conta conectada.", result.email, true)
                 refreshAccountState()
             }
-            AuthResult.ConfirmationSent -> sendAccountEvent("confirmation_sent", "Confira seu e-mail para confirmar a conta.", null, false)
+            AuthResult.ConfirmationSent -> sendAccountEvent("confirmation_sent", "Abra a mensagem de confirmação no seu e-mail e volte aqui para entrar.", null, false)
             AuthResult.SignedOut -> sendAccountEvent("signed_out", "Você saiu da conta.", null, false)
             is AuthResult.RecoverySent -> sendAccountEvent("recovery_sent", "Enviamos as instruções para ${result.email}.", result.email, false)
             AuthResult.RecoveryReady -> sendAccountEvent("recovery_ready", "Defina a sua nova senha.", authService.currentSession()?.email, true)
@@ -619,29 +617,41 @@ class MainActivity : Activity() {
                 sendAccountEvent("payment_returned", message, authService.currentSession()?.email, authService.currentSession() != null)
                 if (result.status == "success") handler.postDelayed({ refreshAccountState() }, 3_000L)
             }
-            is AuthResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
+            is AuthResult.Failed -> sendAccountEvent(
+                "error", result.message, authService.currentSession()?.email,
+                authService.currentSession() != null, field = result.field,
+            )
         }
     }
 
     private fun publishCheckoutResult(result: CheckoutResult) {
         when (result) {
             CheckoutResult.Opened -> sendAccountEvent("checkout_opened", "O pagamento foi aberto no navegador. Ao terminar, volte ao Landmensure para atualizar seu plano.", authService.currentSession()?.email, true)
-            CheckoutResult.NotAuthenticated -> sendAccountEvent("error", "Entre na sua conta antes de assinar.", null, false)
-            is CheckoutResult.Failed -> sendAccountEvent("error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
+            CheckoutResult.NotAuthenticated -> sendAccountEvent("checkout_error", "Entre na sua conta para assinar.", null, false)
+            is CheckoutResult.Failed -> sendAccountEvent("checkout_error", result.message, authService.currentSession()?.email, authService.currentSession() != null)
         }
     }
 
-    private fun sendAccountEvent(type: String, message: String, email: String?, signedIn: Boolean, pro: Boolean = false) {
+    private fun sendAccountEvent(
+        type: String, message: String, email: String?, signedIn: Boolean, pro: Boolean = false, field: String? = null,
+    ) {
         if (!::webView.isInitialized) return
-        val encodedEmail = email?.let { JSONObject.quote(it) } ?: "null"
-        val payload = "{type:${JSONObject.quote(type)},message:${JSONObject.quote(message)},email:$encodedEmail,signedIn:$signedIn,pro:$pro}"
+        val payload = JSONObject().apply {
+            put("type", type)
+            put("message", message)
+            put("email", email ?: JSONObject.NULL)
+            put("signedIn", signedIn)
+            put("pro", pro)
+            put("field", field ?: JSONObject.NULL)
+        }
         webView.evaluateJavascript("window.receiveAccountEvent&&window.receiveAccountEvent($payload)", null)
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == locationRequestCode) {
-            pendingStart = false
+            val captureRequested = pendingPointCapture
+            pendingPointCapture = false
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                 val seconds = pendingOccupationSeconds
                 val adjusted = pendingOccupationAdjusted
@@ -650,7 +660,11 @@ class MainActivity : Activity() {
                 if (seconds != null) startRequestedOccupation(seconds, adjusted)
                 else {
                     startLiveTracking()
-                    sendLiveStatus("Localização autorizada. Aguardando fixação GPS/GNSS…")
+                    if (captureRequested) {
+                        sendLocationError("Quando as coordenadas aparecerem, toque novamente em Coletar ponto.")
+                    } else {
+                        sendLiveStatus("Localização autorizada. Buscando sua posição…")
+                    }
                 }
             }
             else {
