@@ -2,6 +2,7 @@
   const model = {
     signedIn: false,
     email: "",
+    userId: null,
     pro: false,
     mode: "signIn",
     pending: "",
@@ -212,13 +213,14 @@
   }
 
   function announceAccountState() {
-    const detail = { signedIn: model.signedIn, pro: model.pro };
+    const detail = { signedIn: model.signedIn, pro: model.pro, userId: model.userId };
     window.dispatchEvent(new CustomEvent("landmensure:account-state", { detail }));
   }
 
   function receiveState(event) {
     if (model.pending === "auth" || model.pending === "logout") return;
     model.signedIn = Boolean(event.signedIn);
+    model.userId = model.signedIn ? event.userId || null : null;
     if (model.signedIn) model.email = event.email || "";
     model.pro = model.signedIn && Boolean(event.pro);
     document.documentElement.dataset.plan = model.pro ? "pro" : "free";
@@ -248,6 +250,7 @@
       case "signed_in":
         model.signedIn = true;
         model.email = event.email || "";
+        model.userId = event.userId || null;
         model.mode = "signIn";
         renderGate();
         renderAccount();

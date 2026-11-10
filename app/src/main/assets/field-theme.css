@@ -1,0 +1,118 @@
+/* Paleta compartilhada pelo GNSS, pela conta e pelo Memorial KML. */
+:root {
+  color-scheme: light;
+  --bg: #f5f3e9;
+  --surface: #fffef8;
+  --soft: #edf1e7;
+  --ink: #1d2c25;
+  --muted: #53645a;
+  --line: #cdd7cb;
+  --navy: #184c3c;
+  --blue: #285e50;
+  --orange: #a44227;
+  --on-primary: #fffef8;
+  --on-secondary: #fffef8;
+  --on-action: #fffef8;
+  --selection: #e2ebde;
+  --field-accent: #c28750;
+  --glow: #e1eadd;
+  --hero-start: #143e32;
+  --hero-end: #285a46;
+  --shadow: 0 5px 18px #213e2a12;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12201b;
+  --surface: #1a2b24;
+  --soft: #23382e;
+  --ink: #edf3e9;
+  --muted: #b6c8bc;
+  --line: #3c5649;
+  --navy: #a5d7bc;
+  --blue: #92c9bb;
+  --orange: #f1ad87;
+  --on-primary: #14251d;
+  --on-secondary: #14251d;
+  --on-action: #382118;
+  --selection: #294338;
+  --field-accent: #e9ad72;
+  --glow: #21382d;
+  --hero-start: #1e4133;
+  --hero-end: #315844;
+  --shadow: 0 5px 18px #0003;
+}
+
+/* Nomes usados pelo módulo Memorial KML. */
+:root,
+:root[data-theme="dark"] {
+  --canvas: var(--bg);
+  --surface-soft: var(--soft);
+  --primary: var(--navy);
+  --primary-hover: var(--blue);
+  --accent: var(--selection);
+  --field: var(--surface);
+  --field-border: var(--line);
+}
+
+body,
+:root[data-theme="dark"] body {
+  background: radial-gradient(ellipse at 50% -15%, var(--glow) 0, transparent 50%), var(--bg);
+  color: var(--ink);
+}
+
+#appToolbar { box-shadow: var(--shadow); }
+.app-tab.active {
+  border-color: var(--line);
+  background: var(--selection);
+  box-shadow: inset 0 -2px var(--navy);
+}
+
+.card, .auth-gate-card, .workspace-card { box-shadow: var(--shadow); }
+.auth-gate-card { border-top: 3px solid var(--field-accent); }
+
+#mainPage button.navy, #satPage button.navy, #settingsModal button.navy, .auth-main.navy {
+  background: var(--navy);
+  color: var(--on-primary);
+}
+
+#mainPage button.blue, #satPage button.blue {
+  background: var(--blue);
+  color: var(--on-secondary);
+}
+
+#btnColetar, #mainPage .action-buttons button:not([class]) {
+  background: var(--orange);
+  color: var(--on-action);
+}
+
+#btnColetar { box-shadow: 0 5px 12px color-mix(in srgb, var(--orange) 23%, transparent); }
+
+:root .liveok, :root[data-theme="dark"] .liveok {
+  background: var(--selection);
+  color: var(--navy);
+}
+
+:root[data-theme="dark"] .hint { color: var(--muted); }
+:root[data-theme="dark"] .project input,
+:root[data-theme="dark"] select { background: var(--soft); }
+
+#memorialFrame, :root[data-theme="dark"] #memorialFrame { background: var(--bg); }
+
+.hero, :root[data-theme="dark"] .hero {
+  background: linear-gradient(135deg, var(--hero-start), var(--hero-end));
+}
+
+.btn-file-upload, :root[data-theme="dark"] .btn-file-upload {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: var(--on-action);
+}
+
+.btn-file-upload:hover:not(:disabled) { filter: brightness(.92); }
+:root[data-theme="dark"] .memorial-table th { background: var(--soft); }
+
+button:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--navy);
+  outline-offset: 3px;
+}

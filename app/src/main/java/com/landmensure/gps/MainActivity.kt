@@ -17,6 +17,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.os.Handler
+import android.os.SystemClock
 import android.view.View
 import android.view.WindowInsets
 import android.graphics.Color
@@ -60,6 +61,8 @@ class MainActivity : Activity() {
     private var tracking = false
     private val handler = Handler(Looper.getMainLooper())
     private var occupationActive = false
+    private var occupationChecking = false
+    private var occupationGeneration = 0L
     private var occupationStart = 0L
     private var occupationSeconds = 0
     private var occupationAdjusted = false
@@ -173,14 +176,15 @@ class MainActivity : Activity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         webView = WebView(this)
-        webView.setBackgroundColor(Color.rgb(242, 245, 248))
+        val fieldBackground = Color.rgb(245, 243, 233)
+        webView.setBackgroundColor(fieldBackground)
         statusBarSpace = View(this)
         navigationBarSpace = View(this)
-        statusBarSpace.setBackgroundColor(Color.rgb(242, 245, 248))
-        navigationBarSpace.setBackgroundColor(Color.rgb(242, 245, 248))
+        statusBarSpace.setBackgroundColor(fieldBackground)
+        navigationBarSpace.setBackgroundColor(fieldBackground)
         appRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(242, 245, 248))
+            setBackgroundColor(fieldBackground)
         }
         appRoot.addView(statusBarSpace, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0
@@ -286,8 +290,9 @@ class MainActivity : Activity() {
         }
         @JavascriptInterface fun signOut() {
             accountScope.launch {
-                val result = withContext(Dispatchers.IO) { authService.signOut() }
+                cancelOccupation("Coleta cancelada ao sair da conta.")
                 stopLiveTracking()
+                val result = withContext(Dispatchers.IO) { authService.signOut() }
                 publishAuthResult(result)
             }
         }
@@ -339,7 +344,7 @@ class MainActivity : Activity() {
         }}
 
         @JavascriptInterface fun setDarkBars(dark: Boolean) { runOnUiThread {
-            val color = if (dark) Color.rgb(16, 24, 32) else Color.rgb(242, 245, 248)
+            val color = if (dark) Color.rgb(18, 32, 27) else Color.rgb(245, 243, 233)
             webView.setBackgroundColor(color)
             appRoot.setBackgroundColor(color)
             statusBarSpace.setBackgroundColor(color)
@@ -377,7 +382,10 @@ class MainActivity : Activity() {
                     requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), locationRequestCode)
                     return@runOnUiThread
                 }
-                startLiveTracking()
+                if (!startLiveTracking()) {
+                    sendLocationError("Ative o GPS e permita a localização precisa para coletar pontos.")
+                    return@runOnUiThread
+                }
                 val loc = latestFix
                 if (loc == null) {
                     sendLocationError("Aguardando a primeira posição GPS/GNSS. Espere as coordenadas aparecerem em tempo real e toque novamente em Coletar ponto.")
@@ -476,11 +484,16 @@ class MainActivity : Activity() {
     }
 
     private fun startRequestedOccupation(seconds: Int, adjusted: Boolean) {
+        if (occupationActive || occupationChecking) return
         if (adjusted) {
+            val generation = occupationGeneration
+            occupationChecking = true
             accountScope.launch {
                 val pro = withContext(Dispatchers.IO) {
                     authService.ensureActiveSession() && authService.hasActivePro()
                 }
+                if (generation != occupationGeneration) return@launch
+                occupationChecking = false
                 if (!pro) {
                     sendLocationError("Ponto ajustado é exclusivo do Landmensure Pro. Escolha um plano para continuar.")
                     return@launch
@@ -491,27 +504,38 @@ class MainActivity : Activity() {
     }
 
     private fun beginOccupation(seconds: Int, adjusted: Boolean) {
-        startLiveTracking()
-        if (occupationActive) { sendLocationError("Já existe uma coleta em andamento."); return }
+        if (!startLiveTracking()) {
+            sendLocationError("Ative o GPS e permita a localização precisa para coletar pontos.")
+            return
+        }
         occupationActive = true
         occupationSamples.clear()
         occupationSeconds = seconds
         occupationAdjusted = adjusted
-        occupationStart = System.currentTimeMillis()
+        occupationStart = SystemClock.elapsedRealtime()
         sendOccupationProgress(0, seconds, 0, latestFix?.accuracy?.toDouble() ?: -1.0)
-        scheduleOccupationTick()
+        scheduleOccupationTick(++occupationGeneration)
     }
 
     @SuppressLint("MissingPermission")
-    private fun startLiveTracking() {
-        if (tracking) return
-        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) { sendLiveStatus("Ative o GPS do aparelho"); return }
-        tracking = true
+    private fun startLiveTracking(): Boolean {
+        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+            stopLiveTracking()
+            sendLiveStatus("Ative o GPS do aparelho")
+            return false
+        }
+        if (tracking) return true
         // Fluxo contínuo: cada nova solução GNSS substitui a anterior. Não há média/buffer que cause atraso ao caminhar.
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500L, 0f, liveListener, Looper.getMainLooper())
+        try {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 500L, 0f, liveListener, Looper.getMainLooper())
+        } catch (_: SecurityException) {
+            return false
+        }
+        tracking = true
         runCatching { locationManager.registerGnssStatusCallback(gnssCallback, handler) }
         runCatching { locationManager.addNmeaListener(nmeaListener, handler) }
         sendLiveStatus("Aguardando fixação GPS/GNSS…")
+        return true
     }
 
     private fun stopLiveTracking() {
@@ -524,13 +548,27 @@ class MainActivity : Activity() {
         sendLiveStatus("Rastreamento GPS encerrado.")
     }
 
-    private fun scheduleOccupationTick() {
+    private fun scheduleOccupationTick(generation: Long) {
         handler.postDelayed({
-            if (!occupationActive) return@postDelayed
-            val elapsed = ((System.currentTimeMillis() - occupationStart) / 1000L).toInt()
+            if (!occupationActive || generation != occupationGeneration) return@postDelayed
+            if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                cancelOccupation("O GPS foi desativado. Ative-o para iniciar outra coleta.")
+                stopLiveTracking()
+                return@postDelayed
+            }
+            val elapsed = ((SystemClock.elapsedRealtime() - occupationStart) / 1000L).toInt()
             sendOccupationProgress(elapsed.coerceAtMost(occupationSeconds), occupationSeconds, occupationSamples.size, latestFix?.accuracy?.toDouble() ?: -1.0)
-            if (elapsed >= occupationSeconds) finishOccupation() else scheduleOccupationTick()
+            if (elapsed >= occupationSeconds) finishOccupation() else scheduleOccupationTick(generation)
         }, 500L)
+    }
+
+    private fun cancelOccupation(message: String) {
+        occupationGeneration++
+        if (!occupationActive && !occupationChecking) return
+        occupationActive = false
+        occupationChecking = false
+        occupationSamples.clear()
+        sendLocationError(message)
     }
 
     private fun finishOccupation() {
@@ -591,20 +629,24 @@ class MainActivity : Activity() {
     private fun refreshAccountState() {
         accountScope.launch {
             val active = withContext(Dispatchers.IO) { authService.ensureActiveSession() }
+            val userId = authService.currentSession()?.userId
             val pro = if (active) withContext(Dispatchers.IO) { authService.hasActivePro() } else false
-            publishAccountState(pro)
+            publishAccountState(pro && authService.currentSession()?.userId == userId)
         }
     }
 
     private fun publishAccountState(pro: Boolean = false) {
         val session = authService.currentSession()
-        sendAccountEvent("state", if (session == null) "Você ainda não entrou em uma conta." else "Sessão ativa.", session?.email, session != null, pro)
+        sendAccountEvent(
+            "state", if (session == null) "Você ainda não entrou em uma conta." else "Sessão ativa.",
+            session?.email, session != null, pro, userId = session?.userId,
+        )
     }
 
     private fun publishAuthResult(result: AuthResult) {
         when (result) {
             is AuthResult.SignedIn -> {
-                sendAccountEvent("signed_in", "Conta conectada.", result.email, true)
+                sendAccountEvent("signed_in", "Conta conectada.", result.email, true, userId = result.userId)
                 refreshAccountState()
             }
             AuthResult.ConfirmationSent -> sendAccountEvent("confirmation_sent", "Abra a mensagem de confirmação no seu e-mail e volte aqui para entrar.", null, false)
@@ -633,7 +675,8 @@ class MainActivity : Activity() {
     }
 
     private fun sendAccountEvent(
-        type: String, message: String, email: String?, signedIn: Boolean, pro: Boolean = false, field: String? = null,
+        type: String, message: String, email: String?, signedIn: Boolean, pro: Boolean = false,
+        field: String? = null, userId: String? = null,
     ) {
         if (!::webView.isInitialized) return
         val payload = JSONObject().apply {
@@ -643,6 +686,7 @@ class MainActivity : Activity() {
             put("signedIn", signedIn)
             put("pro", pro)
             put("field", field ?: JSONObject.NULL)
+            put("userId", userId ?: JSONObject.NULL)
         }
         webView.evaluateJavascript("window.receiveAccountEvent&&window.receiveAccountEvent($payload)", null)
     }
@@ -659,8 +703,9 @@ class MainActivity : Activity() {
                 pendingOccupationAdjusted = false
                 if (seconds != null) startRequestedOccupation(seconds, adjusted)
                 else {
-                    startLiveTracking()
-                    if (captureRequested) {
+                    if (!startLiveTracking()) {
+                        sendLocationError("Ative o GPS e permita a localização precisa para coletar pontos.")
+                    } else if (captureRequested) {
                         sendLocationError("Quando as coordenadas aparecerem, toque novamente em Coletar ponto.")
                     } else {
                         sendLiveStatus("Localização autorizada. Buscando sua posição…")
@@ -678,7 +723,11 @@ class MainActivity : Activity() {
         super.onResume()
         if (::webView.isInitialized) refreshAccountState()
     }
-    override fun onPause() { super.onPause(); stopLiveTracking() }
+    override fun onPause() {
+        super.onPause()
+        cancelOccupation("A coleta foi interrompida porque o aplicativo saiu de primeiro plano.")
+        stopLiveTracking()
+    }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent) }
     override fun onDestroy() { accountScope.cancel(); super.onDestroy() }
     @Deprecated("Deprecated in Java")

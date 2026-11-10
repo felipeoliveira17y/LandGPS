@@ -1366,7 +1366,17 @@
         }
       }
     </style>
+    <style>
+      .field-drawer > summary { padding: 7px 0; cursor: pointer; font-weight: 700; color: var(--navy); }
+      .field-drawer > summary + * { margin-top: 10px; }
+      .field-drawer .action-groups { padding: 0; border: 0; box-shadow: none; }
+      .saved-memorial { width: min(100%, 900px); margin: 12px auto; }
+      .saved-memorial label { display: block; font-weight: 700; margin-bottom: 6px; }
+      .saved-memorial-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+      .saved-memorial-controls select { flex: 1 1 200px; min-width: 0; }
+    </style>
     <link rel="stylesheet" href="account-ui.css" />
+    <link rel="stylesheet" href="field-theme.css" />
     <script defer src="account-ui.js"></script>
   </head>
   <body>
@@ -1407,10 +1417,19 @@
       </button>
     </nav>
     <section id="memorialPage" hidden>
+      <section class="card saved-memorial" aria-labelledby="savedMemorialTitle">
+        <h2 id="savedMemorialTitle">Abrir levantamento salvo</h2>
+        <label for="savedMemorialProject">Levantamentos neste aparelho</label>
+        <div class="saved-memorial-controls">
+          <select id="savedMemorialProject"></select>
+          <button type="button" id="savedMemorialOpen" class="navy" onclick="abrirMemorialSalvo()" disabled>Abrir no memorial</button>
+        </div>
+        <p class="hint" id="savedMemorialStatus" role="status"></p>
+      </section>
       <iframe
         id="memorialFrame"
         title="Calculadora de área e memorial KML"
-        src="https://appassets.androidplatform.net/assets/memorial/index.html"
+        src="memorial/index.html"
         onload="
           this.contentWindow.postMessage(
             {
@@ -1447,7 +1466,9 @@
         <div class="sub">GPS Landmensure • Levantamento de Campo • v13</div>
       </header>
       <div class="wrap">
-        <div class="card project">
+        <details class="card field-drawer">
+          <summary>Identificação do levantamento</summary>
+          <div class="project">
           <input
             id="projeto"
             aria-label="Nome do levantamento"
@@ -1457,7 +1478,8 @@
             aria-label="Responsável ou cliente"
             placeholder="Responsável ou cliente"
           />
-        </div>
+          </div>
+        </details>
         <section class="card" aria-labelledby="captureTitle">
           <h2 class="livehead" id="captureTitle">Coleta de campo</h2>
           <div class="capture-controls">
@@ -1503,6 +1525,8 @@
             Posição atual
           </div>
           <p class="liveok" id="liveStatus">Toque em “Coletar ponto” para iniciar o GPS.</p>
+          <details class="signal-details">
+            <summary>Coordenadas e qualidade do sinal</summary>
           <div class="livegrid">
             <div class="liveitem">
               <b>Latitude decimal</b><span id="liveLat">--</span>
@@ -1518,8 +1542,6 @@
             </div>
           </div>
           <p class="hint">O Android estima a acurácia. Confira os pontos antes do uso técnico.</p>
-          <details class="signal-details">
-            <summary>Detalhes do sinal e coordenadas UTM</summary>
             <div class="livegrid">
               <div class="liveitem">
                 <b>UTM E (X)</b><span id="liveE">--</span>
@@ -1546,7 +1568,11 @@
             <p class="hint" id="lastCaptureQuality" hidden></p>
           </details>
         </div>
-        <div class="card action-groups">
+        <div id="map"></div>
+        <p class="hint" id="mapHint">Os pontos coletados aparecem no mapa.</p>
+        <details class="card field-drawer">
+          <summary>Ações do levantamento</summary>
+          <div class="action-groups">
           <section class="action-group">
             <div class="action-heading">
               <div>
@@ -1725,19 +1751,20 @@
               </button>
             </div>
           </section>
-        </div>
-        <div class="card stats">
+          </div>
+        </details>
+        <details class="card field-drawer">
+          <summary>Revisar levantamento</summary>
+          <div class="stats">
           <div class="stat">
             <b>Acurácia estimada</b><span id="acc">-</span> m
           </div>
           <div class="stat"><b>Área</b><span id="area">0</span> m²</div>
           <div class="stat"><b>Área</b><span id="ha">0</span> ha</div>
           <div class="stat"><b>Perímetro</b><span id="per">0</span> m</div>
-        </div>
-        <div id="map"></div>
-        <p class="hint" id="mapHint">Os pontos coletados aparecem no mapa.</p>
-        <section class="card table-wrap" aria-labelledby="pointsTitle">
-          <h3 id="pointsTitle">Pontos do levantamento</h3>
+          </div>
+          <div class="table-wrap">
+          <h3>Pontos do levantamento</h3>
           <p class="hint" id="pointsEmpty">Toque em “Coletar ponto” para adicionar o primeiro.</p>
           <table id="pointsTable" hidden>
             <thead>
@@ -1755,15 +1782,14 @@
             </thead>
             <tbody id="tb"></tbody>
           </table>
-        </section>
-        <div class="card">
-          <h3>Memorial do levantamento</h3>
+          </div>
+          <h3>Prévia do memorial</h3>
           <div id="memorial"></div>
-        </div>
+        </details>
       </div>
       <script src="memorial/assets/leaflet-C6bVGNBE.js"></script>
-      <footer class="gnss-social-bar">
-        <h2 class="gnss-social-heading">Redes sociais e contato</h2>
+      <details class="gnss-social-bar field-drawer">
+        <summary>Contato</summary>
         <nav class="gnss-social-links" aria-label="Redes sociais e contato">
           <a
             href="https://www.instagram.com/landmensure/"
@@ -1802,7 +1828,7 @@
             ><span>WhatsApp</span><small>+55 88 8119-7489</small></a
           >
         </nav>
-      </footer>
+      </details>
     </div>
     <div id="satPage" class="satpage">
       <div class="brand">
@@ -2075,6 +2101,7 @@
         markers = [],
         poly = null,
         poligonoGerado = false;
+      let surveyOwner = null;
       function nomePadrao(i) {
         return "P" + (i + 1);
       }
@@ -2297,6 +2324,7 @@
         return true;
       }
       function receiveLiveLocation(lat, lng, acc, time) {
+        if (!surveyOwner) return;
         lat = Number(lat);
         lng = Number(lng);
         acc = Number(acc);
@@ -2327,6 +2355,7 @@
             .bindTooltip("Posição atual");
       }
       function receiveCapturedLocation(lat, lng, acc, time) {
+        if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
         if (!adicionarPontoGPS(lat, lng, acc)) {
           receiveNativeLocationError("O GPS enviou uma posição inválida. Tente coletar o ponto novamente.");
           return;
@@ -2347,6 +2376,7 @@
           : "block";
         document.getElementById("satPage").style.display = "none";
         document.getElementById("memorialPage").hidden = !memorial;
+        if (memorial) atualizarProjetosMemorial();
         document.querySelectorAll(".app-tab").forEach((b) => {
           const ativo = b.dataset.page === tela;
           b.classList.toggle("active", ativo);
@@ -2432,6 +2462,7 @@
           p.textContent = Number(pdop) > 0 ? Number(pdop).toFixed(2) : "--";
       }
       function receiveOccupationProgress(elapsed, total, samples, acc) {
+        if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
         const status = document.getElementById("ocupacaoStatus");
         status.textContent = `${elapsed} de ${total} s • ${samples} ${Number(samples) === 1 ? "leitura" : "leituras"}`;
       }
@@ -2447,6 +2478,7 @@
         hdop,
         pdop,
       ) {
+        if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
         const saved = adicionarPontoGPS(lat, lng, acc, {
           samples: Number(samples),
           rms: Number(spread),
@@ -2478,6 +2510,7 @@
         document.getElementById("captureNotice").textContent = message;
       }
       function capturar() {
+        if (!surveyOwner) return;
         let segundos = Number(
           document.getElementById("tempoColeta").value || 0,
         );
@@ -2574,19 +2607,97 @@
           baseAtual = "osm";
         }
       }
+      function chaveLevantamento(tipo) {
+        if (!surveyOwner) throw new Error("Entre na sua conta para acessar os levantamentos.");
+        return "landmensure_" + tipo + ":" + surveyOwner;
+      }
+      function pontosValidos(vertices) {
+        return Array.isArray(vertices) && vertices.every((p) =>
+          Number.isFinite(p?.lat) && Math.abs(p.lat) <= 90 &&
+          Number.isFinite(p?.lng) && Math.abs(p.lng) <= 180
+        );
+      }
       function lerLevantamentos() {
         try {
-          return JSON.parse(
-            localStorage.getItem("landmensure_levantamentos") || "{}",
-          );
+          const salvos = JSON.parse(localStorage.getItem(chaveLevantamento("levantamentos")) || "{}");
+          return Object.assign(Object.create(null), salvos);
         } catch (_) {
-          return {};
+          return Object.create(null);
+        }
+      }
+      function atualizarProjetosMemorial() {
+        const select = document.getElementById("savedMemorialProject");
+        const anterior = select.value;
+        const projetos = Object.entries(lerLevantamentos() || {});
+        select.replaceChildren(new Option(
+          projetos.length ? "Escolha um levantamento" : "Nenhum levantamento salvo",
+          "",
+        ));
+        for (const [chave, projeto] of projetos) {
+          select.add(new Option(projeto?.projeto || chave, chave));
+        }
+        if (projetos.some(([chave]) => chave === anterior)) select.value = anterior;
+        document.getElementById("savedMemorialOpen").disabled = select.disabled || !select.value;
+        document.getElementById("savedMemorialStatus").textContent = projetos.length
+          ? "Escolha um levantamento ou importe um arquivo KML abaixo."
+          : "Salve um levantamento na aba GNSS ou importe um arquivo KML abaixo.";
+      }
+      document.getElementById("savedMemorialProject").addEventListener("change", (event) => {
+        document.getElementById("savedMemorialOpen").disabled = !event.target.value;
+        document.getElementById("savedMemorialStatus").textContent = "";
+      });
+      async function abrirMemorialSalvo() {
+        const select = document.getElementById("savedMemorialProject");
+        const button = document.getElementById("savedMemorialOpen");
+        const chave = select.value;
+        const projetos = lerLevantamentos() || {};
+        if (select.disabled || !chave || !Object.hasOwn(projetos, chave)) return;
+        const projeto = projetos[chave];
+        const status = document.getElementById("savedMemorialStatus");
+        const vertices = projeto?.pontos;
+        if (!Array.isArray(vertices) || vertices.some((p) =>
+          !Number.isFinite(p?.lat) || Math.abs(p.lat) > 90 ||
+          !Number.isFinite(p.lng) || Math.abs(p.lng) > 180
+        )) {
+          status.textContent = "O levantamento contém coordenadas inválidas. Confira os pontos na aba GNSS.";
+          return;
+        }
+        const distintos = new Set(vertices.map((p) => p.lat + "," + p.lng)).size;
+        if (distintos < 3) {
+          status.textContent = "O memorial precisa de pelo menos três vértices distintos.";
+          return;
+        }
+        if (distintos !== vertices.length) {
+          status.textContent = "Há vértices repetidos. Corrija os pontos na aba GNSS antes de abrir o memorial.";
+          return;
+        }
+        const frame = document.getElementById("memorialFrame");
+        const nome = projeto.projeto || chave;
+        const memorialWindow = frame.contentWindow;
+        select.disabled = true;
+        button.disabled = true;
+        status.textContent = "Abrindo levantamento…";
+        try {
+          if (typeof memorialWindow?.landmensureOpenProject !== "function") {
+            throw new Error("O memorial ainda está carregando. Tente novamente.");
+          }
+          await memorialWindow.landmensureOpenProject(gerarConteudoKML(vertices, nome), nome);
+          if (frame.contentWindow === memorialWindow && select.value === chave) {
+            status.textContent = "Levantamento aberto. Confira a área e gere o memorial abaixo.";
+          }
+        } catch (error) {
+          if (frame.contentWindow === memorialWindow && select.value === chave) {
+            status.textContent = error?.message || "Não foi possível abrir o levantamento. Tente novamente.";
+          }
+        } finally {
+          select.disabled = false;
+          button.disabled = !select.value;
         }
       }
       function salvarRascunho() {
         try {
           localStorage.setItem(
-            "landmensure_rascunho",
+            chaveLevantamento("rascunho"),
             JSON.stringify({
               pontos,
               projeto: document.getElementById("projeto").value,
@@ -2599,7 +2710,7 @@
       function restaurarRascunho() {
         try {
           let d = JSON.parse(
-            localStorage.getItem("landmensure_rascunho") || "null",
+            localStorage.getItem(chaveLevantamento("rascunho")) || "null",
           );
           if (!d || !Array.isArray(d.pontos) || !d.pontos.length) return;
           pontos = d.pontos
@@ -2628,6 +2739,7 @@
         } catch (_) {}
       }
       function exportBackup() {
+        if (!surveyOwner) return alert("Entre na sua conta para exportar o backup.");
         let dados = {
           formato: "GPS-Landmensure-backup",
           versao: 1,
@@ -2648,8 +2760,13 @@
         );
       }
       function importBackup(event) {
+        const contaDeDestino = surveyOwner;
         let file = event.target.files && event.target.files[0];
         if (!file) return;
+        if (!contaDeDestino) {
+          event.target.value = "";
+          return alert("Entre na sua conta para restaurar o backup.");
+        }
         if (file.size > 5 * 1024 * 1024) {
           event.target.value = "";
           return alert("O backup excede o limite de 5 MB.");
@@ -2657,11 +2774,15 @@
         let reader = new FileReader();
         reader.onload = () => {
           try {
+            if (surveyOwner !== contaDeDestino) return;
             let d = JSON.parse(reader.result);
             if (
               d.formato !== "GPS-Landmensure-backup" ||
               !d.levantamentos ||
-              typeof d.levantamentos !== "object"
+              typeof d.levantamentos !== "object" ||
+              Array.isArray(d.levantamentos) ||
+              Object.values(d.levantamentos).some((levantamento) => !pontosValidos(levantamento?.pontos)) ||
+              (d.rascunho != null && !pontosValidos(d.rascunho.pontos))
             )
               throw Error("Formato de backup inválido.");
             if (
@@ -2673,7 +2794,7 @@
             let atual = lerLevantamentos();
             Object.assign(atual, d.levantamentos);
             localStorage.setItem(
-              "landmensure_levantamentos",
+              chaveLevantamento("levantamentos"),
               JSON.stringify(atual),
             );
             if (d.rascunho && Array.isArray(d.rascunho.pontos)) {
@@ -2714,6 +2835,7 @@
         reader.readAsText(file);
       }
       function salvarLevantamento() {
+        if (!surveyOwner) return alert("Entre na sua conta para salvar o levantamento.");
         if (!pontos.length) return alert("Colete um ponto antes de salvar o levantamento.");
         let nome =
           document.getElementById("projeto").value.trim() ||
@@ -2735,7 +2857,11 @@
           ),
           data: new Date().toISOString(),
         };
-        localStorage.setItem("landmensure_levantamentos", JSON.stringify(db));
+        try {
+          localStorage.setItem(chaveLevantamento("levantamentos"), JSON.stringify(db));
+        } catch (_) {
+          return alert("Não foi possível salvar. Confira o espaço disponível no aparelho.");
+        }
         alert("Levantamento salvo no aparelho.");
       }
       function carregarLevantamento() {
@@ -2745,9 +2871,10 @@
         let nome = prompt(
           "Digite exatamente o nome do levantamento:\n\n" + ks.join("\n"),
         );
-        if (!nome || !db[nome])
+        if (!nome || !Object.hasOwn(db, nome))
           return nome && alert("Levantamento não encontrado.");
         let d = db[nome];
+        if (!pontosValidos(d?.pontos)) return alert("O levantamento salvo contém coordenadas inválidas.");
         pontos = d.pontos || [];
         normalizarNomes();
         document.getElementById("projeto").value = d.projeto || nome;
@@ -2794,23 +2921,25 @@
             })[c],
         );
       }
-      function exportKML() {
-        if (!pontos.length) return alert("Nenhum ponto coletado.");
-        let k = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${xml(document.getElementById("projeto").value || "GPS Landmensure")}</name>`;
-        pontos.forEach(
+      function gerarConteudoKML(vertices, nome) {
+        let k = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${xml(nome)}</name>`;
+        vertices.forEach(
           (p, i) =>
             (k += `<Placemark><name>${xml(p.nome || nomePadrao(i))}</name><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`),
         );
-        if (pontos.length >= 3) {
+        if (vertices.length >= 3) {
           let c =
-            pontos.map((p) => `${p.lng},${p.lat},0`).join(" ") +
-            ` ${pontos[0].lng},${pontos[0].lat},0`;
+            vertices.map((p) => `${p.lng},${p.lat},0`).join(" ") +
+            ` ${vertices[0].lng},${vertices[0].lat},0`;
           k += `<Placemark><name>Polígono</name><Style><LineStyle><color>ff0045f4</color><width>3</width></LineStyle><PolyStyle><color>330045f4</color></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
         }
-        k += "</Document></kml>";
+        return k + "</Document></kml>";
+      }
+      function exportKML() {
+        if (!pontos.length) return alert("Nenhum ponto coletado.");
         baixar(
           "GPS_Landmensure_levantamento.kml",
-          k,
+          gerarConteudoKML(pontos, document.getElementById("projeto").value || "GPS Landmensure"),
           "application/vnd.google-earth.kml+xml",
         );
       }
@@ -2859,8 +2988,44 @@
         document.getElementById("acc").textContent = "-";
         atualizarDados();
       }
+      window.addEventListener("landmensure:account-state", (event) => {
+        const { signedIn, userId } = event.detail;
+        const nextOwner = signedIn && typeof userId === "string" &&
+          /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(userId)
+          ? userId.toLowerCase() : null;
+        if (nextOwner === surveyOwner) return;
+        const hadOwner = Boolean(surveyOwner);
+        surveyOwner = nextOwner;
+        pontos = [];
+        poligonoGerado = false;
+        gpsMapCentered = false;
+        liveFix = null;
+        if (liveMarker) map.removeLayer(liveMarker);
+        liveMarker = null;
+        map.setView([0, 0], 2);
+        for (const id of ["projeto", "responsavel", "captureNotice", "lastCaptureQuality"]) {
+          const field = document.getElementById(id);
+          if ("value" in field) field.value = "";
+          else field.textContent = "";
+        }
+        for (const id of ["acc", "liveLat", "liveLng", "liveAcc", "liveE", "liveN", "liveZona"]) {
+          document.getElementById(id).textContent = "–";
+        }
+        document.getElementById("lastCaptureQuality").hidden = true;
+        document.getElementById("stability").textContent = "Aguardando";
+        document.getElementById("liveStatus").textContent = "Toque em “Coletar ponto” para iniciar o GPS.";
+        document.getElementById("ocupacaoStatus").textContent = "Pronto";
+        document.getElementById("btnColetar").disabled = false;
+        if (hadOwner) {
+          const frame = document.getElementById("memorialFrame");
+          frame.src = frame.getAttribute("src");
+          mostrarTela("gnss");
+        }
+        if (surveyOwner) restaurarRascunho();
+        atualizarProjetosMemorial();
+        atualizarDados();
+      });
       inicializarDefinicoes();
-      restaurarRascunho();
       ["projeto", "responsavel"].forEach((id) =>
         document.getElementById(id).addEventListener("input", salvarRascunho),
       );

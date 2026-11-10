@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Painel Técnico · Landmensure</title>
+  <link rel="stylesheet" href="/field-theme.css">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.mjs"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">L</div>
+      <div><strong>Landmensure</strong><small>Painel técnico</small></div>
+    </div>
+    <div class="toolbar">
+      <button id="theme" type="button" aria-pressed="false">Modo escuro</button>
+      <button id="account" type="button">Entrar na conta</button>
+    </div>
+  </header>
+  <main class="workspace">
+    <aside class="library" aria-labelledby="library-title">
+      <div class="library-head">
+        <h1 id="library-title">Levantamentos</h1>
+        <p id="source-label" class="muted">Demonstração</p>
+      </div>
+      <button class="primary" id="open-backup" type="button">Abrir backup do celular</button>
+      <input id="backup" type="file" accept=".json,application/json" hidden>
+      <div class="library-tools">
+        <button id="cloud" type="button">Consultar a conta</button>
+        <button id="demo" type="button">Ver exemplo</button>
+      </div>
+      <p id="library-status" role="status" class="muted"></p>
+      <ul id="projects" aria-label="Projetos disponíveis"></ul>
+      <button id="more" type="button" hidden>Carregar mais</button>
+    </aside>
+    <section class="review" aria-labelledby="review-title">
+      <div id="empty" class="empty" hidden>
+        <h2>Nenhum projeto para revisar</h2>
+        <p>Abra um backup do celular ou consulte os levantamentos da sua conta.</p>
+      </div>
+      <article id="survey">
+        <header class="survey-head">
+          <div>
+            <p class="eyebrow" id="survey-source"></p>
+            <h2 id="review-title">Levantamento</h2>
+            <p id="survey-meta" class="muted"></p>
+          </div>
+          <div class="toolbar">
+            <button id="download" type="button">Baixar JSON</button>
+            <button id="print" type="button" class="primary">Imprimir memorial</button>
+          </div>
+        </header>
+        <p id="action-status" class="muted" role="status"></p>
+        <dl class="metrics">
+          <div><dt>Vértices</dt><dd id="metric-count">—</dd></div>
+          <div><dt>Área estimada</dt><dd id="metric-area">—</dd></div>
+          <div><dt id="distance-label">Perímetro</dt><dd id="metric-distance">—</dd></div>
+        </dl>
+        <section class="panel plot-panel" aria-labelledby="plot-title">
+          <header><h3 id="plot-title">Contorno do levantamento</h3><p class="muted">Vista esquemática · norte para cima</p></header>
+          <svg id="plot" viewBox="0 0 720 360" role="img" aria-label="Contorno e vértices do levantamento"></svg>
+        </section>
+        <section class="panel" aria-labelledby="vertices-title">
+          <header><h3 id="vertices-title">Vértices e qualidade da coleta</h3><p class="muted">Coordenadas em graus decimais. A acurácia é uma estimativa do aparelho.</p></header>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>Acurácia</th><th>Leituras aceitas</th></tr></thead>
+              <tbody id="vertices"></tbody>
+            </table>
+          </div>
+        </section>
+      </article>
+    </section>
+  </main>
+  <dialog id="login-dialog" aria-labelledby="login-title">
+    <form id="login">
+      <h2 id="login-title">Entre na sua conta</h2>
+      <p class="muted">Use a mesma conta do Landmensure no celular.</p>
+      <label>E-mail <input id="email" type="email" autocomplete="username" required></label>
+      <label>Senha <input id="password" type="password" autocomplete="current-password" required></label>
+      <p id="login-status" role="status" class="muted"></p>
+      <div class="toolbar">
+        <button id="close-login" type="button">Cancelar</button>
+        <button id="submit-login" type="submit" class="primary">Entrar</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

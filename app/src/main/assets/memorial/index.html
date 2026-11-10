@@ -8,7 +8,7 @@
     <meta name="description" content="Importe um KML, confira a área e o perímetro da propriedade e gere um memorial descritivo e croqui para impressão.">
     <meta name="theme-color" content="#123d34">
     <link rel="icon" href="assets/brand-mark-CTyrwmiA.svg" type="image/svg+xml">
-  <script>window.print=function(){if(window.Android&&typeof Android.printHtml==="function"){let html=document.documentElement.outerHTML.replaceAll('./assets/','https://appassets.androidplatform.net/assets/memorial/assets/');Android.printHtml('Memorial_KML_Landmensure',html)}else window.alert('Impressão disponível no aplicativo Android.');};window.open=function(){let html='';return{document:{write(value){html+=value},close(){if(window.Android&&typeof Android.printHtml==="function")Android.printHtml('Memorial_KML_Landmensure',html);else window.print()}}};};document.addEventListener('click',event=>{const link=event.target.closest('a.social-link');if(link&&window.Android&&typeof Android.openExternal==='function'){event.preventDefault();Android.openExternal(link.href)}});</script>
+  <script>window.print=function(){if(window.Android&&typeof Android.printHtml==="function"){let html=document.documentElement.outerHTML.replaceAll('./assets/','https://appassets.androidplatform.net/assets/memorial/assets/').replace('href="../field-theme.css"','href="https://appassets.androidplatform.net/assets/field-theme.css"');Android.printHtml('Memorial_KML_Landmensure',html)}else window.alert('Impressão disponível no aplicativo Android.');};window.open=function(){let html='';return{document:{write(value){html+=value},close(){if(window.Android&&typeof Android.printHtml==="function")Android.printHtml('Memorial_KML_Landmensure',html);else window.print()}}};};document.addEventListener('click',event=>{const link=event.target.closest('a.social-link');if(link&&window.Android&&typeof Android.openExternal==='function'){event.preventDefault();Android.openExternal(link.href)}});</script>
   <script type="module" crossorigin src="assets/index-BWIpz53m.js"></script>
   <link rel="stylesheet" crossorigin href="assets/index-CyRxvwpL.css">
   <style id="landmensureUnifiedStyle">
@@ -26,6 +26,7 @@
     .site-footer.gnss-social-bar{width:min(100% - 24px,980px);margin:14px auto 20px;padding:15px 16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);box-shadow:0 4px 16px #18354a0d}.gnss-social-heading{margin:0 0 10px;color:var(--ink);font-size:14px;font-weight:850}.gnss-social-links{display:flex;flex-wrap:wrap;gap:8px}.gnss-social-links a{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft);color:var(--ink);font-size:12px;font-weight:700;text-decoration:none;transition:border-color .18s,background .18s,color .18s}.gnss-social-links a:hover{border-color:var(--primary);background:var(--accent)}.gnss-social-links svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.gnss-social-links .github svg{fill:currentColor;stroke:none}.gnss-social-links small{font-size:10px;font-weight:500;color:var(--muted)}
     @media(max-width:580px){.site-footer.gnss-social-bar{width:calc(100% - 28px);margin:14px auto 20px;padding:13px;border-radius:14px}.gnss-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.gnss-social-links a{justify-content:flex-start;padding:8px 10px}.gnss-social-links .whatsapp{grid-column:1/-1}}
   </style>
+  <link rel="stylesheet" href="../field-theme.css">
   <script>try{const theme=parent.document.documentElement.dataset.theme||'light';document.documentElement.dataset.theme=theme;localStorage.setItem('landmensure-theme',theme)}catch{}window.addEventListener('message',event=>{if(event.data?.type==='landmensure-theme'){const theme=event.data.theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;try{localStorage.setItem('landmensure-theme',theme)}catch{}const toggle=document.getElementById('themeCheckbox');if(toggle)toggle.checked=theme==='light'}});</script>
 </head>
 
@@ -172,6 +173,56 @@
     </footer>
 
 
+    <script>
+      window.landmensureOpenProject = (kml, nome) => {
+        const input = document.getElementById("fileInput");
+        const status = document.getElementById("fileStatus");
+        const generate = document.getElementById("btnGerar");
+        if (!input || !status || !generate || typeof DataTransfer !== "function") {
+          return Promise.reject(new Error("O memorial ainda não está disponível. Tente novamente."));
+        }
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([kml], "levantamento-salvo.kml", {
+          type: "application/vnd.google-earth.kml+xml",
+        }));
+        input.files = transfer.files;
+        const change = new Event("change", { bubbles: true });
+        return new Promise((resolve, reject) => {
+          // O importador KML confirma o resultado no status do arquivo depois de validar o polígono.
+          const importButton = document.getElementById("btnAdicionarKml");
+          const wasDisabled = importButton.disabled;
+          importButton.disabled = true;
+          function finish(error) {
+            observer.disconnect();
+            clearTimeout(timer);
+            window.removeEventListener("pagehide", cancel);
+            importButton.disabled = wasDisabled;
+            if (error) {
+              reject(new Error(error));
+              return;
+            }
+            document.querySelectorAll(".setup-card .form-grid input").forEach((field) => {
+              field.value = "";
+            });
+            document.getElementById("propriedade").value = nome;
+            resolve();
+          }
+          const cancel = () => finish("A abertura do levantamento foi interrompida.");
+          const observer = new MutationObserver(() => {
+            const current = status.textContent;
+            if (!generate.disabled && current.startsWith("Arquivo carregado:")) {
+              finish();
+            } else if (current !== "Lendo arquivo KML...") {
+              finish(current || "O memorial não conseguiu interpretar o levantamento.");
+            }
+          });
+          const timer = setTimeout(() => finish("O memorial não respondeu. Tente abrir o levantamento novamente."), 10000);
+          window.addEventListener("pagehide", cancel);
+          observer.observe(status, { childList: true, characterData: true, subtree: true });
+          input.dispatchEvent(change);
+        });
+      };
+    </script>
 </body>
 
 </html>

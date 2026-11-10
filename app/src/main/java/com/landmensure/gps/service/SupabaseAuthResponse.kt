@@ -1,13 +1,21 @@
 package com.landmensure.gps.service
 
+import java.util.Base64
+import java.util.UUID
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 
-data class AccountSession(val accessToken: String, val refreshToken: String, val email: String?)
+data class AccountSession(
+    val accessToken: String,
+    val refreshToken: String,
+    val email: String?,
+    val userId: String,
+)
 
 sealed interface AuthResult {
-    data class SignedIn(val email: String?) : AuthResult
+    data class SignedIn(val email: String?, val userId: String) : AuthResult
     data object ConfirmationSent : AuthResult
     data object SignedOut : AuthResult
     data class RecoverySent(val email: String) : AuthResult
@@ -22,11 +30,36 @@ internal const val INVALID_AUTH_RESPONSE = "Não conseguimos concluir esta etapa
 internal fun JsonObject.stringValue(key: String): String? =
     (get(key) as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull?.takeIf { it.isNotBlank() }
 
+internal fun normalizeSupabaseUserId(value: String?): String? {
+    if (value?.length != 36) return null
+    return runCatching { UUID.fromString(value).toString() }
+        .getOrNull()
+        ?.takeIf { it.equals(value, ignoreCase = true) }
+}
+
+/** Fallback de identificação para tokens já recebidos do Auth, inclusive em sessões antigas.
+ * O sub só separa dados locais. A autorização continua dependendo do token validado pelo servidor.
+ */
+internal fun readSupabaseUserId(accessToken: String): String? {
+    val parts = accessToken.split('.', limit = 4)
+    if (parts.size != 3 || parts.any { it.isEmpty() } || parts[1].length > 16384) return null
+    return runCatching {
+        val claims = Base64.getUrlDecoder().decode(parts[1]).toString(Charsets.UTF_8)
+        val root = Json.parseToJsonElement(claims) as? JsonObject
+        normalizeSupabaseUserId(root?.stringValue("sub"))
+    }.getOrNull()
+}
+
 internal fun readAuthSession(root: JsonObject, fallbackEmail: String): AccountSession? {
     val accessToken = root.stringValue("access_token") ?: return null
     val refreshToken = root.stringValue("refresh_token") ?: return null
-    val email = (root["user"] as? JsonObject)?.stringValue("email") ?: fallbackEmail.trim()
-    return AccountSession(accessToken, refreshToken, email)
+    val user = root["user"] as? JsonObject
+    val tokenUserId = readSupabaseUserId(accessToken)
+    val responseUserId = normalizeSupabaseUserId(user?.stringValue("id"))
+    if (responseUserId != null && tokenUserId != null && responseUserId != tokenUserId) return null
+    val userId = responseUserId ?: tokenUserId ?: return null
+    val email = user?.stringValue("email") ?: fallbackEmail.trim()
+    return AccountSession(accessToken, refreshToken, email, userId)
 }
 
 internal fun finishRegistration(
@@ -39,7 +72,7 @@ internal fun finishRegistration(
         ?: (root["session"] as? JsonObject)?.let { readAuthSession(it, email) }
     if (session != null) {
         saveSession(session)
-        return AuthResult.SignedIn(session.email)
+        return AuthResult.SignedIn(session.email, session.userId)
     }
     val user = (root["user"] as? JsonObject) ?: root
     return if (user.stringValue("id") != null) AuthResult.ConfirmationSent

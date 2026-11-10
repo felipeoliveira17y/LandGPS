@@ -16,6 +16,8 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -39,21 +41,21 @@ class SupabaseAuthService(context: Context) {
     private val baseUrl = "https://tfuiwogiwbvqxfqktnwe.supabase.co/auth/v1"
     private val restUrl = "https://tfuiwogiwbvqxfqktnwe.supabase.co/rest/v1"
     private val publishableKey = BuildConfig.SUPABASE_PUBLISHABLE_KEY
+    private val sessionLock = Any()
+    private val refreshLock = Mutex()
 
-    fun currentSession(): AccountSession? {
-        val accessToken = prefs.getString(KEY_ACCESS_TOKEN, null) ?: return null
-        val refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null) ?: return null
-        return AccountSession(accessToken, refreshToken, prefs.getString(KEY_EMAIL, null))
-    }
-
-    fun clearSession() {
-        prefs.edit().clear().apply()
+    fun currentSession(): AccountSession? = synchronized(sessionLock) {
+        val accessToken = prefs.getString(KEY_ACCESS_TOKEN, null) ?: return@synchronized null
+        val refreshToken = prefs.getString(KEY_REFRESH_TOKEN, null) ?: return@synchronized null
+        val userId = normalizeSupabaseUserId(prefs.getString(KEY_USER_ID, null))
+            ?: readSupabaseUserId(accessToken) ?: return@synchronized null
+        AccountSession(accessToken, refreshToken, prefs.getString(KEY_EMAIL, null), userId)
     }
 
     /** Valida a sessão persistida e tenta renová-la uma vez antes de tratá-la como expirada. */
-    suspend fun ensureActiveSession(): Boolean {
-        val session = currentSession() ?: return false
-        if (!isConfigured()) return false
+    suspend fun ensureActiveSession(): Boolean = refreshLock.withLock {
+        val session = currentSession() ?: return@withLock false
+        if (!isConfigured()) return@withLock false
         val validationStatus = runCatching {
             HttpClient(Android).use { client ->
                 client.get("$baseUrl/user") {
@@ -63,11 +65,12 @@ class SupabaseAuthService(context: Context) {
                 }.status.value
             }
         }.getOrNull()
-        if (validationStatus == null) return true // offline: preserva a sessão local sem liberar Pro.
-        if (validationStatus in 200..299) return true
+        if (validationStatus == null) return@withLock currentSession() != null
+        if (validationStatus in 200..299) return@withLock currentSession() != null
         // Somente credenciais recusadas devem disparar refresh/limpeza. Respostas como 429
         // ou 5xx pertencem ao servidor e não podem derrubar uma sessão válida localmente.
-        if (validationStatus !in setOf(401, 403)) return true
+        if (validationStatus !in setOf(401, 403)) return@withLock currentSession() != null
+        if (currentSession() != session) return@withLock currentSession() != null
 
         val refreshed = runCatching {
             HttpClient(Android).use { client ->
@@ -76,17 +79,24 @@ class SupabaseAuthService(context: Context) {
                     contentType(ContentType.Application.Json)
                     setBody(buildJsonObject { put("refresh_token", session.refreshToken) }.toString())
                 }
-                if (response.status.value !in 200..299) false else {
+                if (response.status.value in setOf(400, 401, 403)) false
+                else if (response.status.value !in 200..299) null
+                else {
                     val root = json.parseToJsonElement(response.bodyAsText()).jsonObject
                     val renewed = readAuthSession(root, session.email.orEmpty()) ?: return@use false
-                    saveSession(renewed)
+                    if (renewed.userId != session.userId) return@use false
+                    synchronized(sessionLock) {
+                        if (currentSession() == session) saveSession(renewed)
+                    }
                     true
                 }
             }
         }.getOrNull()
-        if (refreshed == null) return true // falha de rede não deve desconectar o usuário.
-        if (!refreshed) clearSession()
-        return refreshed
+        if (refreshed == null) return@withLock currentSession() != null
+        synchronized(sessionLock) {
+            if (!refreshed && currentSession() == session) prefs.edit().clear().apply()
+        }
+        currentSession() != null
     }
 
     /** Falha fechada: em caso de rede ou sessão inválida, recursos Pro não são liberados. */
@@ -103,7 +113,7 @@ class SupabaseAuthService(context: Context) {
                 }
                 response.status.value in 200..299 && response.bodyAsText().trim() == "true"
             }
-        }.getOrDefault(false)
+        }.getOrDefault(false) && currentSession()?.userId == session.userId
     }
 
     suspend fun signUp(email: String, password: String): AuthResult {
@@ -128,7 +138,7 @@ class SupabaseAuthService(context: Context) {
         }) { root ->
             val session = readAuthSession(root, email) ?: return@request AuthResult.Failed(INVALID_AUTH_RESPONSE)
             saveSession(session)
-            AuthResult.SignedIn(session.email)
+            AuthResult.SignedIn(session.email, session.userId)
         }
     }
 
@@ -145,11 +155,12 @@ class SupabaseAuthService(context: Context) {
     }
 
     suspend fun signOut(): AuthResult {
-        val session = currentSession()
-        if (session != null && isConfigured()) {
-            request("logout", buildJsonObject {}, session.accessToken)
+        val session = synchronized(sessionLock) {
+            currentSession().also { prefs.edit().clear().apply() }
         }
-        clearSession()
+        if (session != null && isConfigured()) {
+            request("logout?scope=local", buildJsonObject {}, session.accessToken)
+        }
         return AuthResult.SignedOut
     }
 
@@ -189,11 +200,12 @@ class SupabaseAuthService(context: Context) {
         accept(ContentType.Application.Json)
     }
 
-    private fun saveSession(session: AccountSession) {
+    private fun saveSession(session: AccountSession) = synchronized(sessionLock) {
         prefs.edit()
             .putString(KEY_ACCESS_TOKEN, session.accessToken)
             .putString(KEY_REFRESH_TOKEN, session.refreshToken)
             .putString(KEY_EMAIL, session.email)
+            .putString(KEY_USER_ID, session.userId)
             .apply()
     }
 
@@ -205,5 +217,6 @@ class SupabaseAuthService(context: Context) {
         const val KEY_ACCESS_TOKEN = "access_token"
         const val KEY_REFRESH_TOKEN = "refresh_token"
         const val KEY_EMAIL = "email"
+        const val KEY_USER_ID = "user_id"
     }
 }

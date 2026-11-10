@@ -45,8 +45,11 @@ Deno.serve(async (request) => {
     yearly: Deno.env.get("STRIPE_PRICE_YEARLY"),
   };
   const plan = payload?.plan;
-  const priceId = plan ? prices[plan] : undefined;
-  if (!plan || !priceId) return json({ error: "Plano inválido." }, 400);
+  if (typeof plan !== "string" || !Object.hasOwn(prices, plan)) {
+    return json({ error: "Plano inválido." }, 400);
+  }
+  const priceId = prices[plan];
+  if (!priceId) return json({ error: "Plano indisponível." }, 503);
 
   const { data: checkoutPermission, error: checkoutPermissionError } = await supabase
     .rpc("claim_checkout_attempt");
