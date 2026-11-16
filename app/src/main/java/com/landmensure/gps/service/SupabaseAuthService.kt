@@ -128,6 +128,32 @@ class SupabaseAuthService(context: Context) {
         }
     }
 
+    suspend fun submitSurveyRevision(
+        owner: String, survey: String, revision: String, snapshot: String,
+    ): String {
+        if (currentSession()?.userId != owner || !ensureActiveSession()) return "sign-in"
+        val session = currentSession()?.takeIf { it.userId == owner } ?: return "sign-in"
+        return HttpClient(Android).use { client ->
+            val response = client.post("$restUrl/rpc/submit_survey_revision") {
+                header("apikey", publishableKey)
+                header(HttpHeaders.Authorization, "Bearer ${session.accessToken}")
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("p_survey_id", survey)
+                    put("p_revision_id", revision)
+                    put("p_snapshot", json.parseToJsonElement(snapshot).jsonObject)
+                }.toString())
+            }
+            when (response.status.value) {
+                in 200..299 -> "synced"
+                401 -> "sign-in"
+                403 -> if ("requer o plano Pro" in response.bodyAsText()) "pro" else "retry"
+                400, 409, 413 -> "invalid"
+                else -> "retry"
+            }
+        }
+    }
+
     suspend fun signIn(email: String, password: String): AuthResult {
         if (!isConfigured()) return notConfigured()
         if (!AccountCredentials.isValidEmail(email)) return invalidEmail()

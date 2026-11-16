@@ -9,6 +9,14 @@
     <title>GPS Landmensure</title>
     <link rel="stylesheet" href="memorial/assets/leaflet-Ds4Udj8m.css" />
     <style>
+      #deletePointDialog { width: min(400px, calc(100% - 32px)); padding: 22px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--surface); }
+      #deletePointDialog::backdrop { background: #10231db3; }
+      #deletePointDialog h2 { margin: 0; font-size: 20px; }
+      #deletePointDialog p { color: var(--muted); }
+      #dialogField { display: grid; gap: 6px; margin: 12px 0; }
+      #dialogField[hidden] { display: none; }
+      #dialogField input, #dialogField select { width: 100%; min-height: 44px; }
+      #deletePointDialog .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
       :root {
         --orange: #f45100;
         --navy: #173447;
@@ -1400,6 +1408,15 @@
         </svg>
       </button>
     </header>
+    <dialog id="deletePointDialog" aria-labelledby="deletePointTitle" aria-describedby="deletePointText">
+      <h2 id="deletePointTitle">Excluir último ponto?</h2>
+      <p id="deletePointText"></p>
+      <form method="dialog" class="dialog-actions">
+        <div id="dialogField" hidden><label id="dialogLabel" for="dialogInput"></label><input id="dialogInput" maxlength="120"><select id="dialogSelect" hidden></select></div>
+        <button type="submit" id="dialogCancel" class="gray" value="cancel" formnovalidate>Cancelar</button>
+        <button type="submit" id="dialogAccept" class="navy" value="accept">OK</button>
+      </form>
+    </dialog>
     <nav id="mainTabs" aria-label="Funções do aplicativo">
       <button
         class="app-tab active"
@@ -1657,6 +1674,8 @@
                   <path d="M3 10h18" />
                 </svg>
                 Abrir levantamento</button
+              ><button id="retrySurveySync" class="gray" type="button" onclick="sincronizarLevantamentos()" hidden>
+                Sincronizar com o painel</button
               ><button class="gray" onclick="exportBackup()">
                 <svg
                   class="icon"
@@ -1701,6 +1720,7 @@
                 Novo levantamento
               </button>
             </div>
+            <p id="surveySyncStatus" role="status"></p>
           </section>
           <section class="action-group">
             <div class="action-heading">
@@ -2231,7 +2251,7 @@
         );
       }
       function gerarPoligono() {
-        if (pontos.length < 3) return alert("Para gerar o polígono, colete pelo menos três pontos.");
+        if (pontos.length < 3) return avisar("Para gerar o polígono, colete pelo menos três pontos.");
         normalizarNomes();
         poligonoGerado = true;
         if (poly) map.removeLayer(poly);
@@ -2559,32 +2579,64 @@
           { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 },
         );
       }
-      function excluirUltimo() {
-        if (!pontos.length) return alert("Não há pontos para excluir.");
-        if (
-          confirm(
-            "Excluir o último ponto, " +
-              (pontos.at(-1).nome || nomePadrao(pontos.length - 1)) +
-              "?",
-          )
-        ) {
-          pontos.pop();
-          normalizarNomes();
-          poligonoGerado = false;
-          if (poly) {
-            map.removeLayer(poly);
-            poly = null;
-          }
-          atualizarDados();
-        }
+      function dialogo({ titulo, mensagem = "", acao = "OK", cancelar = false, perigo = false, campo, valor = "", opcoes }) {
+        const dialog = document.getElementById("deletePointDialog");
+        if (dialog.open || dialog.dataset.pending) return Promise.resolve(null);
+        const input = document.getElementById("dialogInput");
+        const select = document.getElementById("dialogSelect");
+        const label = document.getElementById("dialogLabel");
+        const accept = document.getElementById("dialogAccept");
+        const cancel = document.getElementById("dialogCancel");
+        document.getElementById("deletePointTitle").textContent = titulo;
+        document.getElementById("deletePointText").textContent = mensagem;
+        document.getElementById("dialogField").hidden = !campo;
+        label.textContent = campo || "";
+        label.htmlFor = opcoes ? select.id : input.id;
+        input.hidden = !campo || Boolean(opcoes);
+        input.disabled = input.hidden;
+        input.value = valor;
+        select.hidden = !opcoes;
+        select.disabled = select.hidden;
+        select.replaceChildren(...(opcoes || []).map(nome => new Option(nome, nome)));
+        cancel.hidden = !cancelar;
+        accept.className = perigo ? "danger" : "navy";
+        accept.textContent = acao;
+        dialog.returnValue = "";
+        dialog.dataset.pending = "true";
+        return new Promise(resolve => {
+          dialog.addEventListener("close", () => {
+            delete dialog.dataset.pending;
+            resolve(dialog.returnValue === "accept" ? (campo ? (opcoes ? select.value : input.value) : true) : null);
+          }, { once: true });
+          dialog.showModal();
+          (campo ? (opcoes ? select : input) : cancelar ? cancel : accept).focus();
+        });
       }
-      function renomear(i) {
-        if (!pontos[i]) return;
-        let atual = pontos[i].nome || nomePadrao(i),
-          novo = prompt("Nome do vértice:", atual);
-        if (novo === null) return;
+      function avisar(mensagem) {
+        return dialogo({ titulo: "Landmensure", mensagem });
+      }
+      async function excluirUltimo() {
+        const ponto = pontos.at(-1);
+        if (!ponto) return avisar("Ainda não há pontos para excluir.");
+        const aceitou = await dialogo({
+          titulo: "Excluir último ponto?",
+          mensagem: "O ponto " + (ponto.nome || nomePadrao(pontos.length - 1)) + " será removido do levantamento.",
+          acao: "Excluir ponto", cancelar: true, perigo: true,
+        });
+        if (!aceitou || pontos.at(-1) !== ponto) return;
+        pontos.pop();
+        normalizarNomes();
+        poligonoGerado = false;
+        atualizarDados();
+      }
+      async function renomear(i) {
+        const ponto = pontos[i];
+        if (!ponto) return;
+        const atual = ponto.nome || nomePadrao(i);
+        let novo = await dialogo({ titulo: "Renomear vértice", campo: "Nome do vértice", valor: atual, acao: "Salvar", cancelar: true });
+        if (novo === null || pontos[i] !== ponto) return;
         novo = novo.trim();
-        if (!novo) return alert("O nome do vértice não pode ficar vazio.");
+        if (!novo) return avisar("O nome do vértice não pode ficar vazio.");
         if (
           pontos.some(
             (p, j) =>
@@ -2592,7 +2644,7 @@
               p.nome.toLocaleLowerCase() === novo.toLocaleLowerCase(),
           )
         )
-          return alert("Já existe um vértice com esse nome.");
+          return avisar("Já existe um vértice com esse nome.");
         pontos[i].nome = novo;
         atualizarDados();
       }
@@ -2625,6 +2677,60 @@
           return Object.create(null);
         }
       }
+      const enviosEmAndamento = new Map();
+      const mensagensSincronizacao = {
+        pending: "Aguardando envio.",
+        synced: "Disponível no painel.",
+        retry: "Envio pendente. Tente novamente quando tiver conexão.",
+        pro: "O envio para o painel requer o plano Pro.",
+        invalid: "Esta revisão foi recusada. Confira os pontos e salve novamente.",
+        "sign-in": "Entre novamente para enviar ao painel.",
+      };
+      function exibirSincronizacao(db = lerLevantamentos()) {
+        const status = document.getElementById("surveySyncStatus");
+        const envios = Object.values(db).map(item => item?.sincronizacao).filter(Boolean);
+        const pendentes = envios.filter(item => item.status !== "synced" && item.status !== "invalid");
+        document.getElementById("retrySurveySync").hidden = !window.Android?.syncSurvey || !pendentes.length;
+        status.textContent = envios.length ? envios.map(item =>
+          item.nome + " — " + (enviosEmAndamento.get(surveyOwner) === item.revisao ? "Enviando…" : mensagensSincronizacao[item.status]),
+        ).join(" • ") : "";
+      }
+      function sincronizarLevantamentos() {
+        if (!surveyOwner || !window.Android?.syncSurvey) return;
+        const db = lerLevantamentos();
+        if (enviosEmAndamento.has(surveyOwner)) return;
+        const item = Object.values(db).find(projeto => ["pending", "retry", "pro", "sign-in"].includes(projeto?.sincronizacao?.status));
+        if (!item) return;
+        const { sincronizacao, ...snapshot } = item;
+        enviosEmAndamento.set(surveyOwner, sincronizacao.revisao);
+        exibirSincronizacao(db);
+        try {
+          Android.syncSurvey(surveyOwner, sincronizacao.projeto, sincronizacao.revisao, JSON.stringify(snapshot));
+        } catch (_) {
+          window.receiveSurveySync(surveyOwner, sincronizacao.revisao, "retry");
+        }
+      }
+      window.receiveSurveySync = (conta, revisao, status) => {
+        if (enviosEmAndamento.get(conta) !== revisao) return;
+        enviosEmAndamento.delete(conta);
+        if (surveyOwner !== conta) return;
+        const db = lerLevantamentos();
+        const item = Object.values(db).find(projeto => projeto?.sincronizacao?.revisao === revisao);
+        if (item) {
+          item.sincronizacao.status = status;
+          try {
+            localStorage.setItem(chaveLevantamento("levantamentos"), JSON.stringify(db));
+          } catch (_) {
+            return avisar("Não foi possível atualizar o estado da sincronização no aparelho.");
+          }
+        }
+        exibirSincronizacao(db);
+        if (!item || status === "synced" || status === "invalid") sincronizarLevantamentos();
+      };
+      window.addEventListener("online", sincronizarLevantamentos);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") sincronizarLevantamentos();
+      });
       function atualizarProjetosMemorial() {
         const select = document.getElementById("savedMemorialProject");
         const anterior = select.value;
@@ -2739,12 +2845,15 @@
         } catch (_) {}
       }
       function exportBackup() {
-        if (!surveyOwner) return alert("Entre na sua conta para exportar o backup.");
+        if (!surveyOwner) return avisar("Entre na sua conta para exportar o backup.");
         let dados = {
           formato: "GPS-Landmensure-backup",
           versao: 1,
           exportado: new Date().toISOString(),
-          levantamentos: lerLevantamentos(),
+          levantamentos: Object.fromEntries(Object.entries(lerLevantamentos()).map(([nome, item]) => {
+            const { sincronizacao, ...snapshot } = item;
+            return [nome, snapshot];
+          })),
           rascunho: {
             pontos,
             projeto: document.getElementById("projeto").value,
@@ -2765,14 +2874,14 @@
         if (!file) return;
         if (!contaDeDestino) {
           event.target.value = "";
-          return alert("Entre na sua conta para restaurar o backup.");
+          return avisar("Entre na sua conta para restaurar o backup.");
         }
         if (file.size > 5 * 1024 * 1024) {
           event.target.value = "";
-          return alert("O backup excede o limite de 5 MB.");
+          return avisar("O backup excede o limite de 5 MB.");
         }
         let reader = new FileReader();
-        reader.onload = () => {
+        reader.onload = async () => {
           try {
             if (surveyOwner !== contaDeDestino) return;
             let d = JSON.parse(reader.result);
@@ -2785,18 +2894,17 @@
               (d.rascunho != null && !pontosValidos(d.rascunho.pontos))
             )
               throw Error("Formato de backup inválido.");
-            if (
-              !confirm(
-                "Restaurar os levantamentos deste backup? Nomes iguais aos já salvos serão substituídos.",
-              )
-            )
-              return;
+            if (!await dialogo({ titulo: "Restaurar backup?", mensagem: "Levantamentos com o mesmo nome serão substituídos.", acao: "Restaurar", cancelar: true }) || surveyOwner !== contaDeDestino) return;
             let atual = lerLevantamentos();
-            Object.assign(atual, d.levantamentos);
+            for (const [nome, item] of Object.entries(d.levantamentos)) {
+              const { sincronizacao, ...snapshot } = item;
+              atual[nome] = snapshot;
+            }
             localStorage.setItem(
               chaveLevantamento("levantamentos"),
               JSON.stringify(atual),
             );
+            exibirSincronizacao(atual);
             if (d.rascunho && Array.isArray(d.rascunho.pontos)) {
               pontos = d.rascunho.pontos
                 .filter(
@@ -2825,29 +2933,29 @@
               if (pontos.length)
                 map.setView([pontos[0].lat, pontos[0].lng], 19);
             }
-            alert("Backup restaurado.");
+            avisar("Backup restaurado.");
           } catch (e) {
-            alert("Não foi possível restaurar: " + e.message);
+            avisar("Não foi possível restaurar: " + e.message);
           } finally {
             event.target.value = "";
           }
         };
         reader.readAsText(file);
       }
-      function salvarLevantamento() {
-        if (!surveyOwner) return alert("Entre na sua conta para salvar o levantamento.");
-        if (!pontos.length) return alert("Colete um ponto antes de salvar o levantamento.");
+      async function salvarLevantamento() {
+        const conta = surveyOwner;
+        const vertices = pontos;
+        if (!surveyOwner) return avisar("Entre na sua conta para salvar o levantamento.");
+        if (!pontos.length) return avisar("Colete um ponto antes de salvar o levantamento.");
         let nome =
           document.getElementById("projeto").value.trim() ||
-          prompt(
-            "Nome do levantamento:",
-            "Levantamento " + new Date().toLocaleDateString("pt-BR"),
-          );
-        if (!nome) return;
+          await dialogo({ titulo: "Salvar levantamento", campo: "Nome do levantamento", valor: "Levantamento " + new Date().toLocaleDateString("pt-BR"), acao: "Salvar", cancelar: true });
+        if (nome === null || surveyOwner !== conta || pontos !== vertices || !pontos.length) return;
         nome = limparTexto(nome, 120);
-        if (!nome) return alert("Informe um nome válido para o levantamento.");
+        if (!nome) return avisar("Informe um nome válido para o levantamento.");
         document.getElementById("projeto").value = nome;
         let db = lerLevantamentos();
+        const idProjeto = db[nome]?.sincronizacao?.projeto;
         db[nome] = {
           pontos,
           projeto: nome,
@@ -2857,24 +2965,34 @@
           ),
           data: new Date().toISOString(),
         };
+        if (window.Android?.syncSurvey) {
+          db[nome].sincronizacao = {
+            nome,
+            projeto: idProjeto || crypto.randomUUID(),
+            revisao: crypto.randomUUID(),
+            status: "pending",
+          };
+        }
         try {
           localStorage.setItem(chaveLevantamento("levantamentos"), JSON.stringify(db));
         } catch (_) {
-          return alert("Não foi possível salvar. Confira o espaço disponível no aparelho.");
+          return avisar("Não foi possível salvar. Confira o espaço disponível no aparelho.");
         }
-        alert("Levantamento salvo no aparelho.");
+        avisar("Levantamento salvo no aparelho.");
+        exibirSincronizacao(db);
+        sincronizarLevantamentos();
       }
-      function carregarLevantamento() {
+      async function carregarLevantamento() {
+        const conta = surveyOwner;
         let db = lerLevantamentos(),
           ks = Object.keys(db);
-        if (!ks.length) return alert("Você ainda não salvou levantamentos neste aparelho.");
-        let nome = prompt(
-          "Digite exatamente o nome do levantamento:\n\n" + ks.join("\n"),
-        );
+        if (!ks.length) return avisar("Você ainda não salvou levantamentos neste aparelho.");
+        const nome = await dialogo({ titulo: "Abrir levantamento", campo: "Levantamento salvo", opcoes: ks, acao: "Abrir", cancelar: true });
+        if (surveyOwner !== conta) return;
         if (!nome || !Object.hasOwn(db, nome))
-          return nome && alert("Levantamento não encontrado.");
+          return nome && avisar("Levantamento não encontrado.");
         let d = db[nome];
-        if (!pontosValidos(d?.pontos)) return alert("O levantamento salvo contém coordenadas inválidas.");
+        if (!pontosValidos(d?.pontos)) return avisar("O levantamento salvo contém coordenadas inválidas.");
         pontos = d.pontos || [];
         normalizarNomes();
         document.getElementById("projeto").value = d.projeto || nome;
@@ -2898,7 +3016,7 @@
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       }
       function exportCSV() {
-        if (!pontos.length) return alert("Nenhum ponto coletado.");
+        if (!pontos.length) return avisar("Nenhum ponto coletado.");
         let t =
           "Vertice,Latitude,Longitude,UTM_X,UTM_Y,Zona,Distancia_proximo_m,Azimute_graus\n";
         pontos.forEach((p, i) => {
@@ -2936,7 +3054,7 @@
         return k + "</Document></kml>";
       }
       function exportKML() {
-        if (!pontos.length) return alert("Nenhum ponto coletado.");
+        if (!pontos.length) return avisar("Nenhum ponto coletado.");
         baixar(
           "GPS_Landmensure_levantamento.kml",
           gerarConteudoKML(pontos, document.getElementById("projeto").value || "GPS Landmensure"),
@@ -2944,7 +3062,7 @@
         );
       }
       function imprimirMemorial() {
-        if (pontos.length < 2) return alert("Colete pelo menos 2 pontos.");
+        if (pontos.length < 2) return avisar("Colete pelo menos 2 pontos.");
         let projeto = escapeHtml(
             limparTexto(document.getElementById("projeto").value, 120) ||
               "Levantamento GPS",
@@ -2969,14 +3087,11 @@
           setTimeout(() => w.print(), 500);
         }
       }
-      function limparTudo() {
-        if (
-          pontos.length &&
-          !confirm(
-            "Iniciar novo levantamento e apagar os pontos atuais da tela?",
-          )
-        )
-          return;
+      async function limparTudo() {
+        const conta = surveyOwner;
+        const vertices = pontos;
+        if (pontos.length && !await dialogo({ titulo: "Iniciar novo levantamento?", mensagem: "Os pontos do rascunho atual serão limpos.", acao: "Iniciar novo", cancelar: true, perigo: true })) return;
+        if (surveyOwner !== conta || pontos !== vertices) return;
         pontos = [];
         poligonoGerado = false;
         if (poly) {
@@ -2989,12 +3104,17 @@
         atualizarDados();
       }
       window.addEventListener("landmensure:account-state", (event) => {
-        const { signedIn, userId } = event.detail;
+        const { signedIn, userId, pro } = event.detail;
         const nextOwner = signedIn && typeof userId === "string" &&
           /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(userId)
           ? userId.toLowerCase() : null;
-        if (nextOwner === surveyOwner) return;
+        if (nextOwner === surveyOwner) {
+          if (pro) sincronizarLevantamentos();
+          return;
+        }
         const hadOwner = Boolean(surveyOwner);
+        const dialog = document.getElementById("deletePointDialog");
+        if (dialog.open) dialog.close("cancel");
         surveyOwner = nextOwner;
         pontos = [];
         poligonoGerado = false;
@@ -3022,6 +3142,8 @@
           mostrarTela("gnss");
         }
         if (surveyOwner) restaurarRascunho();
+        exibirSincronizacao();
+        sincronizarLevantamentos();
         atualizarProjetosMemorial();
         atualizarDados();
       });

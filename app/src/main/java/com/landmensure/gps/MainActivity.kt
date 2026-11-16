@@ -38,6 +38,8 @@ import com.landmensure.gps.service.StripePaymentService
 import com.landmensure.gps.service.SubscriptionPlan
 import com.landmensure.gps.service.SupabaseAuthService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -267,6 +269,25 @@ class MainActivity : Activity() {
     }
 
     inner class AndroidBridge {
+        @JavascriptInterface
+        fun syncSurvey(owner: String, survey: String, revision: String, snapshot: String) {
+            accountScope.launch {
+                val status = try {
+                    if (snapshot.toByteArray(Charsets.UTF_8).size > 1_048_576) "invalid"
+                    else withTimeoutOrNull(20_000L) {
+                        withContext(Dispatchers.IO) {
+                            authService.submitSurveyRevision(owner, survey, revision, snapshot)
+                        }
+                    } ?: "retry"
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    "retry"
+                }
+                val args = listOf(owner, revision, status).joinToString(",") { JSONObject.quote(it) }
+                webView.evaluateJavascript("window.receiveSurveySync?.($args)", null)
+            }
+        }
         @JavascriptInterface fun getAccountState() { refreshAccountState() }
         @JavascriptInterface fun signUp(email: String, password: String) {
             accountScope.launch {

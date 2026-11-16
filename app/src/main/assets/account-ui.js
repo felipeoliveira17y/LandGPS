@@ -395,7 +395,8 @@
     }
 
     window.landmensureCloseTopOverlay = () => {
-      if (!byId("planModal").hidden) closePlans();
+      if (byId("deletePointDialog")?.open) byId("deletePointDialog").close("cancel");
+      else if (!byId("planModal").hidden) closePlans();
       else if (!byId("accountModal").hidden) closeAccount();
       else if (!byId("settingsModal")?.hidden && typeof window.fecharDefinicoes === "function") window.fecharDefinicoes();
       else return false;
