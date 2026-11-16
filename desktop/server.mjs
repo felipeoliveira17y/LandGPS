@@ -13,6 +13,9 @@ const files = {
   "/app.mjs": ["app.mjs", "text/javascript; charset=utf-8"],
   "/survey.mjs": ["survey.mjs", "text/javascript; charset=utf-8"],
   "/styles.css": ["styles.css", "text/css; charset=utf-8"],
+  "/leaflet.css": ["../app/src/main/assets/memorial/assets/leaflet-Ds4Udj8m.css", "text/css; charset=utf-8"],
+  "/leaflet.js": ["../app/src/main/assets/memorial/assets/leaflet-C6bVGNBE.js", "text/javascript; charset=utf-8"],
+  "/landmensure.png": ["../app/src/main/assets/logo_landmensure_mark.png", "image/png"],
   "/field-theme.css": ["../app/src/main/assets/field-theme.css", "text/css; charset=utf-8"],
 };
 
@@ -24,7 +27,7 @@ const server = createServer(async (request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Referrer-Policy", "no-referrer");
-  response.setHeader("Content-Security-Policy", `default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self' ${project}; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`);
+  response.setHeader("Content-Security-Policy", `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https://tile.openstreetmap.org https://server.arcgisonline.com; connect-src 'self' ${project}; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`);
   const pathname = request.url?.split("?")[0];
   if (request.method !== "GET" || !pathname) {
     response.writeHead(405).end();

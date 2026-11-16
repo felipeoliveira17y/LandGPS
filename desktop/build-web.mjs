@@ -15,4 +15,16 @@ await copyFile(
   new URL("../app/src/main/assets/field-theme.css", import.meta.url),
   new URL("field-theme.css", output),
 );
+await copyFile(
+  new URL("../app/src/main/assets/logo_landmensure_mark.png", import.meta.url),
+  new URL("landmensure.png", output),
+);
+await copyFile(
+  new URL("../app/src/main/assets/memorial/assets/leaflet-Ds4Udj8m.css", import.meta.url),
+  new URL("leaflet.css", output),
+);
+await copyFile(
+  new URL("../app/src/main/assets/memorial/assets/leaflet-C6bVGNBE.js", import.meta.url),
+  new URL("leaflet.js", output),
+);
 await writeFile(new URL("config.json", output), JSON.stringify({ project, key }));

@@ -4,26 +4,56 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Painel Técnico · Landmensure</title>
+  <link rel="icon" href="/landmensure.png" type="image/png">
   <link rel="stylesheet" href="/field-theme.css">
   <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/leaflet.css">
+  <script defer src="/leaflet.js"></script>
   <script type="module" src="/app.mjs"></script>
 </head>
 <body>
   <header class="top">
-    <div class="brand">
-      <div class="mark" aria-hidden="true">L</div>
-      <div><strong>Landmensure</strong><small>Painel técnico</small></div>
-    </div>
+    <button class="brand" id="home" type="button" aria-label="Landmensure, início">
+      <img class="mark" src="/landmensure.png" alt="" width="40" height="40">
+      <strong>Landmensure</strong>
+    </button>
     <div class="toolbar">
       <button id="theme" type="button" aria-pressed="false">Modo escuro</button>
       <button id="account" type="button">Entrar na conta</button>
     </div>
   </header>
   <main class="workspace">
-    <aside class="library" aria-labelledby="library-title">
+    <section id="welcome" class="welcome" aria-labelledby="welcome-title">
+      <div class="welcome-intro">
+        <div>
+          <h1 id="welcome-title">Levantamentos<br> de campo</h1>
+          <p>Revise as medidas e os vértices dos seus projetos no computador.</p>
+        </div>
+        <div class="survey-art" aria-hidden="true">
+          <div class="survey-art-parcel"></div>
+        </div>
+      </div>
+      <div class="welcome-actions">
+        <article>
+          <h2>Backup do celular</h2>
+          <p>Abra um arquivo JSON exportado pelo aplicativo.</p>
+          <button id="welcome-backup" type="button" class="primary">Abrir backup <span aria-hidden="true">↗</span></button>
+        </article>
+        <article>
+          <h2>Levantamentos da conta</h2>
+          <p>Consulte os projetos que já estão na sua conta Landmensure.</p>
+          <button id="welcome-account" type="button">Consultar minha conta <span aria-hidden="true">↗</span></button>
+        </article>
+      </div>
+      <div class="welcome-footer">
+        <button id="welcome-demo" type="button" class="text-action">Ver um levantamento de exemplo <span aria-hidden="true">→</span></button>
+        <p id="welcome-status" role="status" class="muted"></p>
+      </div>
+    </section>
+    <aside class="library" id="library" aria-labelledby="library-title" hidden>
       <div class="library-head">
-        <h1 id="library-title">Levantamentos</h1>
-        <p id="source-label" class="muted">Demonstração</p>
+        <h2 id="library-title">Levantamentos</h2>
+        <p id="source-label" class="muted"></p>
       </div>
       <button class="primary" id="open-backup" type="button">Abrir backup do celular</button>
       <input id="backup" type="file" accept=".json,application/json" hidden>
@@ -32,10 +62,20 @@
         <button id="demo" type="button">Ver exemplo</button>
       </div>
       <p id="library-status" role="status" class="muted"></p>
+      <div class="library-filters" id="library-filters" hidden>
+        <label>Buscar projeto <input id="project-search" type="search" placeholder="Nome ou responsável"></label>
+        <label>Ordenar por
+          <select id="project-sort">
+            <option value="recent">Mais recentes</option>
+            <option value="name">Nome do projeto</option>
+          </select>
+        </label>
+        <p id="filter-status" class="muted" role="status"></p>
+      </div>
       <ul id="projects" aria-label="Projetos disponíveis"></ul>
       <button id="more" type="button" hidden>Carregar mais</button>
     </aside>
-    <section class="review" aria-labelledby="review-title">
+    <section class="review" id="review" aria-label="Revisão de levantamentos" hidden>
       <div id="empty" class="empty" hidden>
         <h2>Nenhum projeto para revisar</h2>
         <p>Abra um backup do celular ou consulte os levantamentos da sua conta.</p>
@@ -44,38 +84,101 @@
         <header class="survey-head">
           <div>
             <p class="eyebrow" id="survey-source"></p>
-            <h2 id="review-title">Levantamento</h2>
+            <h1 id="review-title" tabindex="-1">Levantamento</h1>
             <p id="survey-meta" class="muted"></p>
           </div>
           <div class="toolbar">
-            <button id="download" type="button">Baixar JSON</button>
-            <button id="print" type="button" class="primary">Imprimir memorial</button>
+            <button id="open-export" type="button" class="primary">Exportar</button>
           </div>
         </header>
         <p id="action-status" class="muted" role="status"></p>
+        <div class="toolbar review-tabs" role="tablist" aria-label="Revisão do levantamento">
+          <button type="button" role="tab" id="tab-overview" aria-controls="panel-overview" aria-selected="true">Visão geral</button>
+          <button type="button" role="tab" id="tab-map" aria-controls="panel-map" aria-selected="false" tabindex="-1">Mapa</button>
+          <button type="button" role="tab" id="tab-vertices" aria-controls="panel-vertices" aria-selected="false" tabindex="-1">Vértices</button>
+          <button type="button" role="tab" id="tab-memorial" aria-controls="panel-memorial" aria-selected="false" tabindex="-1">Memorial</button>
+          <button type="button" role="tab" id="tab-history" aria-controls="panel-history" aria-selected="false" tabindex="-1" hidden>Histórico</button>
+        </div>
+        <section id="panel-overview" class="review-panel" role="tabpanel" aria-labelledby="tab-overview" tabindex="0">
         <dl class="metrics">
           <div><dt>Vértices</dt><dd id="metric-count">—</dd></div>
-          <div><dt>Área estimada</dt><dd id="metric-area">—</dd></div>
+          <div class="metric-area"><dt>Área estimada</dt><dd id="metric-area">—</dd></div>
           <div><dt id="distance-label">Perímetro</dt><dd id="metric-distance">—</dd></div>
         </dl>
-        <section class="panel plot-panel" aria-labelledby="plot-title">
-          <header><h3 id="plot-title">Contorno do levantamento</h3><p class="muted">Vista esquemática · norte para cima</p></header>
-          <svg id="plot" viewBox="0 0 720 360" role="img" aria-label="Contorno e vértices do levantamento"></svg>
+          <section class="panel survey-sheet" aria-labelledby="sheet-title">
+            <h2 id="sheet-title">Ficha do levantamento</h2>
+            <p class="muted">Use os dados da ficha no memorial e no backup JSON.</p>
+            <form id="survey-sheet">
+              <label>Imóvel <input name="imovel" maxlength="120"></label>
+              <label>Cliente <input name="cliente" maxlength="120"></label>
+              <label>Responsável técnico <input name="responsavelTecnico" maxlength="120"></label>
+              <label>Método de coleta <input name="metodoColeta" maxlength="120"></label>
+              <div class="sheet-actions">
+                <button type="submit" class="primary">Aplicar à ficha</button>
+                <p id="sheet-status" class="muted" role="status"></p>
+              </div>
+            </form>
+          </section>
         </section>
-        <section class="panel" aria-labelledby="vertices-title">
-          <header><h3 id="vertices-title">Vértices e qualidade da coleta</h3><p class="muted">Coordenadas em graus decimais. A acurácia é uma estimativa do aparelho.</p></header>
+        <section id="panel-map" class="panel plot-panel review-panel" role="tabpanel" aria-labelledby="tab-map" tabindex="0" hidden>
+          <header class="plot-heading">
+            <div><h2>Contorno do levantamento</h2><p class="muted" id="map-status" role="status">Vista esquemática</p></div>
+            <span class="orientation" aria-label="Norte para cima">↑ N</span>
+          </header>
+          <div class="toolbar map-tools" role="group" aria-label="Visualização do levantamento">
+            <button id="map-schematic" type="button" aria-pressed="true">Esquema</button>
+            <button id="map-street" type="button" aria-pressed="false">Mapa</button>
+            <button id="map-satellite" type="button" aria-pressed="false">Satélite</button>
+            <button id="map-fit" type="button" hidden>Enquadrar contorno</button>
+          </div>
+          <svg id="plot" viewBox="0 0 720 360" role="img" aria-label="Contorno e vértices do levantamento"></svg>
+          <div id="survey-map" aria-label="Mapa interativo do levantamento" hidden></div>
+        </section>
+        <section id="panel-vertices" class="panel review-panel" role="tabpanel" aria-labelledby="tab-vertices" tabindex="0" hidden>
+          <header><h2>Vértices e qualidade da coleta</h2><p class="muted">Confira a coleta onde a acurácia registrada supera 5 m ou há menos de 3 leituras aceitas.</p></header>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>Acurácia</th><th>Leituras aceitas</th></tr></thead>
+              <thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>Acurácia</th><th>Leituras aceitas</th><th>Conferência</th></tr></thead>
               <tbody id="vertices"></tbody>
             </table>
+          </div>
+          <p id="quality-summary" class="quality-summary"></p>
+        </section>
+        <section id="panel-memorial" class="panel memorial review-panel" role="tabpanel" aria-labelledby="tab-memorial" tabindex="0" hidden>
+          <h2>Memorial descritivo</h2>
+          <p id="memorial-sheet"></p>
+          <p id="memorial-summary"></p>
+          <p id="memorial-description"></p>
+        </section>
+        <section id="panel-history" class="panel review-panel" role="tabpanel" aria-labelledby="tab-history" tabindex="0" hidden>
+          <h2>Histórico de revisões</h2>
+          <p id="history-status" class="muted" role="status"></p>
+          <div class="history-controls" id="history-controls" hidden>
+            <label>Versão de referência <select id="history-before"></select></label>
+            <label>Versão para comparar <select id="history-after"></select></label>
+          </div>
+          <button id="history-more" type="button" hidden>Carregar versões anteriores</button>
+          <div id="history-comparison" hidden>
+            <p id="history-metrics" role="status"></p>
+            <ul id="history-vertices"></ul>
           </div>
         </section>
       </article>
     </section>
   </main>
+  <dialog id="export-dialog" aria-labelledby="export-title">
+    <h2 id="export-title">Exportar levantamento</h2>
+    <div class="export-options">
+      <button id="download" type="button">Backup JSON</button>
+      <button id="download-csv" type="button">Tabela CSV</button>
+      <button id="download-kml" type="button">Mapa KML</button>
+      <button id="print" type="button" class="primary">Memorial em PDF</button>
+    </div>
+    <form method="dialog"><button type="submit">Fechar</button></form>
+  </dialog>
   <dialog id="login-dialog" aria-labelledby="login-title">
     <form id="login">
+      <img class="dialog-mark" width="40" height="40" src="/landmensure.png" alt="">
       <h2 id="login-title">Entre na sua conta</h2>
       <p class="muted">Use a mesma conta do Landmensure no celular.</p>
       <label>E-mail <input id="email" type="email" autocomplete="username" required></label>
@@ -89,6 +192,7 @@
     </form>
   </dialog>
   <dialog id="recovery-dialog" aria-labelledby="recovery-title">
+    <img class="dialog-mark" width="40" height="40" src="/landmensure.png" alt="">
     <h2 id="recovery-title">Recuperar senha</h2>
     <form id="request-recovery">
       <label>E-mail <input id="recovery-email" type="email" autocomplete="email" required></label>
