@@ -81,11 +81,27 @@
       <label>E-mail <input id="email" type="email" autocomplete="username" required></label>
       <label>Senha <input id="password" type="password" autocomplete="current-password" required></label>
       <p id="login-status" role="status" class="muted"></p>
+      <button id="open-recovery" type="button">Esqueci minha senha</button>
       <div class="toolbar">
         <button id="close-login" type="button">Cancelar</button>
         <button id="submit-login" type="submit" class="primary">Entrar</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="recovery-dialog" aria-labelledby="recovery-title">
+    <h2 id="recovery-title">Recuperar senha</h2>
+    <form id="request-recovery">
+      <label>E-mail <input id="recovery-email" type="email" autocomplete="email" required></label>
+      <button type="submit" class="primary">Enviar instruções</button>
+    </form>
+    <form id="reset-password" hidden>
+      <label>Código recebido <input id="recovery-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" required></label>
+      <label>Nova senha <input id="new-password" type="password" autocomplete="new-password" minlength="10" required></label>
+      <p class="muted">Use ao menos 10 caracteres, com maiúscula, minúscula e número.</p>
+      <button type="submit" class="primary">Salvar nova senha</button>
+    </form>
+    <p id="recovery-status" role="status"></p>
+    <button id="close-recovery" type="button">Voltar ao login</button>
   </dialog>
 </body>
 </html>

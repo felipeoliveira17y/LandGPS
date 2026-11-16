@@ -193,6 +193,128 @@ $("account").addEventListener("click", () => {
   void api("/auth/v1/logout?scope=local", { token: previous, method: "POST" }).catch(() => {});
 });
 $("close-login").addEventListener("click", () => $("login-dialog").close());
+const recoveryDialog = $("recovery-dialog");
+const recoveryStatus = $("recovery-status");
+const resetForm = $("reset-password");
+const recoveryButtons = recoveryDialog.querySelectorAll("button");
+function setRecoveryBusy(busy) {
+  recoveryButtons.forEach(button => { button.disabled = busy; });
+}
+let recoverySession;
+let recoveryEmail;
+const recoveryVerifierKey = "landmensure.recovery-verifier";
+const callbackUrl = new URL(location.href);
+const recoveryCode = callbackUrl.searchParams.get("code");
+if (recoveryCode) {
+  callbackUrl.searchParams.delete("code");
+  history.replaceState(null, "", callbackUrl.pathname + callbackUrl.search);
+  if (sessionStorage.getItem(recoveryVerifierKey)) {
+    recoveryDialog.showModal();
+    setRecoveryBusy(true);
+    const verifier = sessionStorage.getItem(recoveryVerifierKey);
+    sessionStorage.removeItem(recoveryVerifierKey);
+    api("/auth/v1/token?grant_type=pkce", {
+      method: "POST", body: { auth_code: recoveryCode, code_verifier: verifier },
+    }).then(result => {
+      recoverySession = result.access_token;
+      recoveryEmail = result.user.email;
+      $("recovery-code").closest("label").hidden = true;
+      $("recovery-code").required = false;
+      resetForm.hidden = false;
+      recoveryStatus.textContent = "Escolha uma nova senha.";
+    }).catch(() => {
+      recoveryStatus.textContent = "Esse link expirou ou já foi usado. Peça outro.";
+    }).finally(() => setRecoveryBusy(false));
+  }
+}
+
+$("open-recovery").addEventListener("click", () => {
+  $("recovery-email").value = $("email").value;
+  recoveryStatus.textContent = "";
+  $("login-dialog").close();
+  recoveryDialog.showModal();
+});
+$("close-recovery").addEventListener("click", () => recoveryDialog.close());
+recoveryDialog.addEventListener("cancel", event => event.preventDefault());
+recoveryDialog.addEventListener("close", () => {
+  recoverySession = undefined;
+  recoveryEmail = undefined;
+  resetForm.reset();
+  resetForm.hidden = true;
+  $("recovery-code").closest("label").hidden = false;
+  $("recovery-code").required = true;
+  $("login-dialog").showModal();
+});
+
+$("request-recovery").addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = event.submitter;
+  if (button.disabled) return;
+  setRecoveryBusy(true);
+  const email = $("recovery-email").value.trim();
+  try {
+    if (location.protocol === "https:") {
+      const verifier = Array.from(crypto.getRandomValues(new Uint8Array(32)),
+        byte => byte.toString(16).padStart(2, "0")).join("");
+      const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier));
+      const challenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      sessionStorage.setItem(recoveryVerifierKey, verifier);
+      const redirect = encodeURIComponent(location.origin + location.pathname);
+      await api("/auth/v1/recover?redirect_to=" + redirect, {
+        method: "POST", body: { email, code_challenge: challenge, code_challenge_method: "s256" },
+      });
+      recoveryStatus.textContent = "Se o e-mail estiver cadastrado, você receberá um link. Cole o link nesta mesma aba para redefinir a senha.";
+      return;
+    }
+    if (!recoveryDialog.open) return;
+    recoveryEmail = email;
+    recoverySession = undefined;
+    resetForm.reset();
+    resetForm.hidden = false;
+    recoveryStatus.textContent = "Se esse e-mail estiver cadastrado, você receberá um código.";
+  } catch (error) {
+    recoveryStatus.textContent = error.status === 429
+      ? "Aguarde um pouco antes de pedir outro código." : "O envio está indisponível. Tente mais tarde.";
+  } finally {
+    setRecoveryBusy(false);
+  }
+});
+
+resetForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  const button = event.submitter;
+  if (button.disabled || !recoveryEmail) return;
+  const password = $("new-password").value;
+  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    recoveryStatus.textContent = "Inclua uma letra maiúscula, uma minúscula e um número.";
+    return;
+  }
+  const email = recoveryEmail;
+  setRecoveryBusy(true);
+  try {
+    if (!recoverySession) {
+      const result = await api("/auth/v1/verify", {
+        method: "POST", body: { type: "recovery", email, token: $("recovery-code").value.trim() },
+      });
+      if (!recoveryDialog.open || recoveryEmail !== email) return;
+      recoverySession = result.access_token;
+    }
+    await api("/auth/v1/user", { method: "PUT", token: recoverySession, body: { password } });
+    if (!recoveryDialog.open) return;
+    $("email").value = email;
+    $("login-status").textContent = "Senha atualizada. Entre com a nova senha.";
+    recoveryDialog.close();
+  } catch (error) {
+    if (error.status === 401) recoverySession = undefined;
+    recoveryStatus.textContent = recoverySession
+      ? "A senha não foi atualizada. Confira os requisitos e tente novamente."
+      : "Confira o código recebido ou peça um novo.";
+  } finally {
+    $("new-password").value = "";
+    setRecoveryBusy(false);
+  }
+});
 $("login-dialog").addEventListener("close", () => { $("password").value = ""; });
 $("login").addEventListener("submit", async event => {
   event.preventDefault();
