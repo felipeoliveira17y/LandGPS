@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 val localProperties = Properties().apply {
     val propertiesFile = rootProject.file("local.properties")
@@ -10,12 +11,29 @@ val localProperties = Properties().apply {
 // ela vem do Secret SUPABASE_PUBLISHABLE_KEY e nunca é gravada no repositório.
 val supabasePublishableKey = localProperties.getProperty("SUPABASE_PUBLISHABLE_KEY")
     ?: providers.environmentVariable("SUPABASE_PUBLISHABLE_KEY").orNull.orEmpty()
-val configuredVersionCode = providers.gradleProperty("versionCode").orNull?.toIntOrNull() ?: 16
-val configuredVersionName = providers.gradleProperty("versionName").orNull ?: "2.3.3-android14plus"
-val releaseStoreFile = providers.environmentVariable("ANDROID_KEYSTORE_FILE").orNull
-val releaseStorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+val configuredVersionCode = providers.gradleProperty("versionCode").orNull?.let {
+    it.toIntOrNull()?.takeIf { code -> code in 1..2_100_000_000 }
+        ?: error("versionCode precisa ser um inteiro positivo aceito pela Google Play.")
+} ?: 17
+val configuredVersionName = providers.gradleProperty("versionName").orNull ?: "2.4.0"
+val publicWebUrl = (providers.gradleProperty("publicWebUrl").orNull
+    ?: providers.environmentVariable("LANDMENSURE_PUBLIC_WEB_URL").orNull
+    ?: localProperties.getProperty("LANDMENSURE_PUBLIC_WEB_URL")).orEmpty().trimEnd('/')
+if (publicWebUrl.isNotEmpty()) {
+    val uri = URI(publicWebUrl)
+    require(uri.scheme == "https" && uri.host != null && uri.userInfo == null &&
+        uri.rawPath.isEmpty() && uri.rawQuery == null && uri.rawFragment == null
+    ) { "Use a origem pública HTTPS do Landmensure, sem caminho, consulta ou fragmento." }
+}
+val keyProperties = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.isFile }?.inputStream()?.use(::load)
+}
+fun signingValue(env: String, property: String) =
+    providers.environmentVariable(env).orNull ?: keyProperties.getProperty(property)
+val releaseStoreFile = signingValue("ANDROID_KEYSTORE_FILE", "storeFile")
+val releaseStorePassword = signingValue("ANDROID_KEYSTORE_PASSWORD", "storePassword")
+val releaseKeyAlias = signingValue("ANDROID_KEY_ALIAS", "keyAlias")
+val releaseKeyPassword = signingValue("ANDROID_KEY_PASSWORD", "keyPassword")
 val hasReleaseSigning = listOf(
     releaseStoreFile,
     releaseStorePassword,
@@ -49,6 +67,21 @@ android {
             "SUPABASE_PUBLISHABLE_KEY",
             "\"$supabasePublishableKey\""
         )
+        buildConfigField("String", "PUBLIC_WEB_URL", "\"$publicWebUrl\"")
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("playStore") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"playStore\"")
+            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "false")
+        }
+        create("direct") {
+            dimension = "distribution"
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"direct\"")
+            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "true")
+        }
     }
 
     compileOptions {
@@ -78,9 +111,19 @@ android {
     buildTypes {
         getByName("release") {
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 
+}
+
+tasks.matching { it.name == "prePlayStoreReleaseBuild" }.configureEach {
+    doFirst {
+        require(!hasReleaseSigning || publicWebUrl.isNotEmpty()) {
+            "Configure LANDMENSURE_PUBLIC_WEB_URL ou -PpublicWebUrl para publicar a versão Play Store."
+        }
+    }
 }
 
 dependencies {

@@ -8,7 +8,10 @@ if (key && !/^sb_publishable_[\w-]+$/.test(key)) {
 }
 
 await mkdir(output, { recursive: true });
-for (const name of ["index.html", "app.mjs", "survey.mjs", "styles.css"]) {
+for (const name of [
+  "index.html", "app.mjs", "survey.mjs", "styles.css",
+  "privacy.html", "delete-account.html", "delete-account.mjs", "legal.css",
+]) {
   await copyFile(new URL(name, import.meta.url), new URL(name, output));
 }
 await copyFile(

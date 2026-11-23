@@ -8,7 +8,24 @@
     <meta name="description" content="Importe um KML, confira a área e o perímetro da propriedade e gere um memorial descritivo e croqui para impressão.">
     <meta name="theme-color" content="#14533C">
     <link rel="icon" href="assets/brand-mark-CTyrwmiA.svg" type="image/svg+xml">
-  <script>window.print=function(){if(window.Android&&typeof Android.printHtml==="function"){let html=document.documentElement.outerHTML.replaceAll('./assets/','https://appassets.androidplatform.net/assets/memorial/assets/').replace('href="../field-theme.css"','href="https://appassets.androidplatform.net/assets/field-theme.css"');Android.printHtml('Memorial_KML_Landmensure',html)}else document.getElementById('fileStatus').textContent='Abra o Landmensure no Android para imprimir o memorial.';};window.open=function(){let html='';return{document:{write(value){html+=value},close(){if(window.Android&&typeof Android.printHtml==="function")Android.printHtml('Memorial_KML_Landmensure',html);else window.print()}}};};document.addEventListener('click',event=>{const link=event.target.closest('a.social-link');if(link&&window.Android&&typeof Android.openExternal==='function'){event.preventDefault();Android.openExternal(link.href)}});</script>
+  <script>
+    function requireMemorialPro() {
+      try {
+        if (parent !== window && parent.document.documentElement.dataset.plan === "pro") return true;
+        if (parent !== window) parent.landmensureAccount?.openPlans();
+      } catch (_) {}
+      const status = document.getElementById("fileStatus");
+      if (status) status.textContent = "O memorial completo está disponível no Landmensure Pro.";
+      return false;
+    }
+    document.addEventListener("click", (event) => {
+      if (event.target.closest("#btnGerar, #btnCroqui, #btnImprMemorial") && !requireMemorialPro()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+  </script>
+  <script>window.print=function(){if(!requireMemorialPro())return;if(window.Android&&typeof Android.printHtml==="function"){let html=document.documentElement.outerHTML.replaceAll('./assets/','https://appassets.androidplatform.net/assets/memorial/assets/').replace('href="../field-theme.css"','href="https://appassets.androidplatform.net/assets/field-theme.css"');Android.printHtml('Memorial_KML_Landmensure',html)}else document.getElementById('fileStatus').textContent='Abra o Landmensure no Android para imprimir o memorial.';};window.open=function(){let html='';return{document:{write(value){html+=value},close(){if(!requireMemorialPro())return;if(window.Android&&typeof Android.printHtml==="function")Android.printHtml('Memorial_KML_Landmensure',html);else window.print()}}};};document.addEventListener('click',event=>{const link=event.target.closest('a.social-link');if(link&&window.Android&&typeof Android.openExternal==='function'){event.preventDefault();Android.openExternal(link.href)}});</script>
   <script type="module" crossorigin src="assets/index-BWIpz53m.js"></script>
   <link rel="stylesheet" crossorigin href="assets/index-CyRxvwpL.css">
   <style id="landmensureUnifiedStyle">

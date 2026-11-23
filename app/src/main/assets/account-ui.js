@@ -8,6 +8,7 @@
     pending: "",
   };
   const byId = (id) => document.getElementById(id);
+  const direct = window.Android?.getDistributionChannel?.() === "direct";
   const native = () => typeof window.Android?.getAccountState === "function";
   const appSections = ["appToolbar", "mainTabs", "mainPage", "memorialPage", "satPage", "settingsModal"];
   let accountTrigger;
@@ -109,9 +110,15 @@
     byId("authGateContent").querySelectorAll("input, button").forEach((control) => {
       control.disabled = authBusy || (!native() && control.type === "submit");
     });
-    byId("accountLogout").disabled = model.pending === "logout";
-    byId("planPeriods").disabled = model.pending === "checkout";
-    byId("planSubmit").disabled = model.pending === "checkout";
+    const deleting = model.pending === "delete";
+    byId("accountLogout").disabled = model.pending === "logout" || deleting;
+    byId("deleteAccountSubmit").disabled = deleting;
+    byId("deleteAccountCancel").disabled = deleting;
+    byId("deleteAccountConfirmation").disabled = deleting;
+    if (direct) {
+      byId("planPeriods").disabled = model.pending === "checkout";
+      byId("planSubmit").disabled = model.pending === "checkout";
+    }
   }
 
   function submitCredentials(event) {
@@ -137,7 +144,7 @@
     byId("accountEmail").textContent = model.email || "Conta Landmensure";
     byId("accountPlan").textContent = model.pro ? "Landmensure Pro ativo" : "Plano gratuito";
     byId("accountPlans").textContent = model.pro ? "Ver assinatura" : "Conhecer o Pro";
-    byId("planOptions").hidden = model.pro;
+    if (direct) byId("planOptions").hidden = model.pro;
     byId("planActive").hidden = !model.pro;
   }
 
@@ -180,7 +187,7 @@
 
   function subscribe(event) {
     event.preventDefault();
-    if (!native() || !model.signedIn || model.pro || model.pending) return;
+    if (!direct || !native() || !model.signedIn || model.pro || model.pending) return;
     const plan = new FormData(event.currentTarget).get("plan");
     if (!["weekly", "monthly", "yearly"].includes(plan)) return;
     model.pending = "checkout";
@@ -218,7 +225,7 @@
   }
 
   function receiveState(event) {
-    if (model.pending === "auth" || model.pending === "logout") return;
+    if (["auth", "logout", "delete"].includes(model.pending)) return;
     model.signedIn = Boolean(event.signedIn);
     model.userId = model.signedIn ? event.userId || null : null;
     if (model.signedIn) model.email = event.email || "";
@@ -258,6 +265,20 @@
         syncOverlays();
         announceAccountState();
         break;
+      case "account_deleted":
+        for (const type of ["levantamentos", "rascunho"]) {
+          try { localStorage.removeItem(`landmensure_${type}:${event.userId}`); } catch (_) {}
+        }
+        byId("deleteAccountDialog").close();
+        byId("deleteAccountForm").reset();
+        if (model.userId !== event.userId) break;
+        model.mode = "signIn";
+        model.email = "";
+        receiveState({ signedIn: false });
+        renderGate();
+        setStatus("authGateStatus", "Sua conta foi excluída.");
+        byId("authTitle").focus();
+        break;
       case "signed_out":
         model.mode = "signIn";
         model.email = "";
@@ -292,7 +313,8 @@
         setStatus("planStatus", event.message, "error");
         break;
       case "error": {
-        const status = pending === "checkout" ? "planStatus"
+        const status = pending === "delete" ? "deleteAccountStatus"
+          : pending === "checkout" ? "planStatus"
           : pending === "logout" ? "accountStatus" : "authGateStatus";
         setStatus(status, event.message, "error");
         const field = event.field === "email" ? byId("gateEmail")
@@ -317,6 +339,7 @@
           <p class="auth-description" id="authIntro"></p>
           <div id="authGateContent"></div>
           <p id="authGateStatus" class="account-feedback" role="status"></p>
+          <a id="authPrivacyPolicyLink" class="auth-secondary" hidden>Política de Privacidade</a>
         </div>
       </section>
       <div id="accountModal" class="account-overlay" hidden>
@@ -330,6 +353,11 @@
             <span id="accountPlan"></span>
           </section>
           <button class="auth-main navy account-plan-action" id="accountPlans" type="button">Conhecer o Pro</button>
+          <section class="account-privacy" aria-labelledby="privacyTitle">
+            <h3 id="privacyTitle">Privacidade e exclusão de conta</h3>
+            <a id="privacyPolicyLink" class="auth-secondary" hidden>Política de Privacidade</a>
+            <button class="auth-secondary" id="deleteAccountOpen" type="button">Excluir minha conta permanentemente</button>
+          </section>
           <button class="auth-secondary account-logout" id="accountLogout" type="button">Sair da conta</button>
           <p id="accountStatus" class="account-feedback" role="status"></p>
         </section>
@@ -340,9 +368,21 @@
             <h2 id="planTitle" tabindex="-1">Landmensure Pro</h2>
             <button class="account-close" id="planClose" type="button" aria-label="Fechar planos">×</button>
           </header>
-          <p id="planActive" class="account-summary" hidden>Seu plano Pro está ativo. Para gerenciar a assinatura, fale com o atendimento.</p>
-          <form id="planOptions" class="plan-options">
-            <p class="auth-description">Use o Ponto Ajustado de 120 s e exporte seus levantamentos em CSV, KML e memorial em PDF.</p>
+          <p id="planActive" class="account-summary" hidden>Seu plano Pro está ativo.</p>
+          ${direct ? "" : '<p class="auth-description">Os benefícios Pro ficam disponíveis quando uma assinatura ativa está vinculada à sua conta.</p>'}
+            <table class="plan-matrix">
+              <caption>Compare os planos</caption>
+              <thead><tr><th scope="col">Recurso</th><th scope="col">Gratuito</th><th scope="col">Pro</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Projetos e pontos</th><td>2 projetos, 10 pontos por projeto</td><td>Sem limite do plano</td></tr>
+                <tr><th scope="row">Mapa</th><td>Ruas</td><td>Ruas e satélite</td></tr>
+                <tr><th scope="row">Arquivos</th><td>Backup JSON</td><td>Backup, KML, CSV, GeoJSON e memorial completo</td></tr>
+                <tr><th scope="row">Painel Desktop</th><td>Prévia local</td><td>Sincronização e revisão completa</td></tr>
+                <tr><th scope="row">Ponto ajustado de 120 s</th><td>—</td><td>Incluído</td></tr>
+              </tbody>
+            </table>
+          ${direct ? `<form id="planOptions" class="plan-options">
+            <p class="auth-description">Pague por cartão de crédito, Pix ou boleto bancário conforme disponibilidade no Stripe. O Pix inicial pode ser confirmado em instantes. No boleto, o Pro é liberado após a compensação.</p>
             <fieldset id="planPeriods" class="plan-periods">
               <legend>Escolha o período</legend>
               <label><input type="radio" name="plan" value="weekly"> Semanal</label>
@@ -351,10 +391,31 @@
             </fieldset>
             <button class="auth-main navy" id="planSubmit" type="submit">Continuar para o pagamento</button>
             <p class="auth-hint">O Stripe mostra o valor e a renovação antes de você confirmar.</p>
-          </form>
+          </form>` : ""}
           <p id="planStatus" class="account-feedback" role="status"></p>
         </section>
-      </div>`);
+      </div>
+      <dialog id="deleteAccountDialog" class="account-delete-dialog" aria-labelledby="deleteAccountTitle">
+        <form id="deleteAccountForm">
+          <h2 id="deleteAccountTitle">Excluir conta permanentemente?</h2>
+          <p>Os levantamentos da conta e as cópias locais deste aparelho serão excluídos. A assinatura Stripe será cancelada. Essa ação é irreversível.</p>
+          <label for="deleteAccountConfirmation">Digite EXCLUIR para confirmar</label>
+          <input id="deleteAccountConfirmation" required pattern="EXCLUIR" autocomplete="off" autocapitalize="characters">
+          <p id="deleteAccountStatus" class="account-feedback" role="status"></p>
+          <div class="account-delete-actions">
+            <button id="deleteAccountCancel" class="auth-secondary" type="button">Cancelar</button>
+            <button id="deleteAccountSubmit" class="danger" type="submit">Excluir permanentemente</button>
+          </div>
+        </form>
+      </dialog>`);
+
+    const privacyUrl = window.Android?.getPrivacyPolicyUrl?.();
+    if (privacyUrl) {
+      for (const id of ["authPrivacyPolicyLink", "privacyPolicyLink"]) {
+        byId(id).href = privacyUrl;
+        byId(id).hidden = false;
+      }
+    }
 
     const toolbar = byId("appToolbar");
     const settings = toolbar?.querySelector(".toolbar-settings");
@@ -374,7 +435,28 @@
     byId("accountPlans").addEventListener("click", openPlans);
     byId("accountLogout").addEventListener("click", signOut);
     byId("planClose").addEventListener("click", closePlans);
-    byId("planOptions").addEventListener("submit", subscribe);
+    byId("planOptions")?.addEventListener("submit", subscribe);
+    const deleteDialog = byId("deleteAccountDialog");
+    byId("deleteAccountOpen").addEventListener("click", () => {
+      if (!native() || !model.signedIn || model.pending) return;
+      byId("deleteAccountForm").reset();
+      setStatus("deleteAccountStatus");
+      deleteDialog.showModal();
+      byId("deleteAccountConfirmation").focus();
+    });
+    byId("deleteAccountCancel").addEventListener("click", () => deleteDialog.close());
+    deleteDialog.addEventListener("cancel", event => {
+      if (model.pending === "delete") event.preventDefault();
+    });
+    byId("deleteAccountForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const confirmation = byId("deleteAccountConfirmation").value;
+      if (!native() || !model.signedIn || model.pending || confirmation !== "EXCLUIR") return;
+      model.pending = "delete";
+      syncControls();
+      setStatus("deleteAccountStatus", "Excluindo sua conta e encerrando a assinatura…");
+      window.Android.deleteAccount(confirmation);
+    });
     byId("accountModal").addEventListener("click", (event) => {
       if (event.target === event.currentTarget) closeAccount();
     });
@@ -395,7 +477,9 @@
     }
 
     window.landmensureCloseTopOverlay = () => {
-      if (byId("deletePointDialog")?.open) byId("deletePointDialog").close("cancel");
+      if (byId("deleteAccountDialog").open) {
+        if (model.pending !== "delete") byId("deleteAccountDialog").close();
+      } else if (byId("deletePointDialog")?.open) byId("deletePointDialog").close("cancel");
       else if (!byId("planModal").hidden) closePlans();
       else if (!byId("accountModal").hidden) closeAccount();
       else if (!byId("settingsModal")?.hidden && typeof window.fecharDefinicoes === "function") window.fecharDefinicoes();

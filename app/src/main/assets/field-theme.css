@@ -157,3 +157,46 @@ button:focus-visible, select:focus-visible, summary:focus-visible {
 [data-theme="dark"] .leaflet-container .leaflet-bar a:is(:hover, :focus-visible) { background: var(--selection); }
 [data-theme="dark"] .leaflet-container .leaflet-bar a.leaflet-disabled { background: var(--soft); color: var(--muted); }
 [data-theme="dark"] .leaflet-container .leaflet-control-attribution a { color: var(--ink); text-decoration: underline; }
+
+.plan-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--ink);
+  font-size: .875rem;
+}
+.plan-matrix caption { text-align: start; font-weight: 700; padding-block: .5rem; }
+.plan-matrix :is(th, td) { border-bottom: 1px solid var(--line); padding: .45rem; text-align: start; }
+.plan-matrix thead { background: var(--soft); }
+
+@media screen and (prefers-reduced-motion: no-preference) {
+  @keyframes gnssPulse {
+    0%, 100% { transform: scale(1); opacity: .65; }
+    55% { transform: scale(1.7); opacity: .2; }
+  }
+
+  @keyframes captureConfirmed {
+    from { transform: scale(.98); opacity: .72; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes fadeSlideIn {
+    from { transform: translateY(5px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  #liveStatus[data-fix="active"]::before {
+    content: "";
+    display: inline-block;
+    width: .55em;
+    height: .55em;
+    margin-inline-end: .6em;
+    border-radius: 50%;
+    background: var(--success);
+    animation: gnssPulse 1.8s ease-in-out infinite;
+  }
+
+  #btnColetar:active:not(:disabled) { transform: scale(.97); }
+  #btnColetar[data-capture="saved"] { animation: captureConfirmed 180ms ease-out; }
+  .field-enter, dialog[open],
+  .account-overlay:not([hidden]) > :first-child { animation: fadeSlideIn 180ms ease-out; }
+}

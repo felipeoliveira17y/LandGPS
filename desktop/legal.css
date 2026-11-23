@@ -1,0 +1,30 @@
+body { margin: 0; padding: clamp(14px, 4vw, 48px); font: 1rem/1.6 system-ui, sans-serif; }
+.legal-card {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: clamp(18px, 5vw, 40px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.legal-brand { display: flex; gap: .7rem; align-items: center; color: var(--primary-ink); }
+.legal-card h1 { line-height: 1.2; }
+.legal-card h2 { font-size: 1.2rem; margin-top: 1.5rem; }
+.legal-card a { color: var(--primary-ink); font-weight: 600; }
+.legal-card li + li { margin-top: .5rem; }
+.legal-card form { display: grid; gap: .75rem; max-width: 30rem; }
+.legal-card form[hidden] { display: none; }
+.legal-card label { display: grid; gap: .25rem; font-weight: 650; }
+.legal-card input, .legal-card button {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: .5rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+}
+.legal-card input { background: var(--soft); color: var(--ink); }
+.legal-card button { background: var(--danger); color: var(--on-action); font-weight: 700; }
+.legal-card button:disabled { opacity: .6; }
+.legal-card [data-tone="error"] { color: var(--danger); }

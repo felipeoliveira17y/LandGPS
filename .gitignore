@@ -2,6 +2,7 @@
 build/
 app/build/
 local.properties
+/keystore.properties
 
 # Pacotes de distribuição e chaves de assinatura.
 /*.zip

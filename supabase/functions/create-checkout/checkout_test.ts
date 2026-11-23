@@ -83,9 +83,28 @@ Deno.test("recovers the original Stripe session when the first response is lost"
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0], requests[1]);
   assert.equal(requests[0].key, "landmensure-checkout-original");
+  assert.equal(new URLSearchParams(requests[0].body).has("currency"), false);
   assert.equal(stripeSessions.size, 1);
   assert.deepEqual(test.saved, [{ id: "cs_original", url: sessionUrl }]);
   assert.deepEqual(test.removed, []);
+});
+
+Deno.test("creates a BRL subscription checkout with card, Pix and three-day Boleto", async () => {
+  const test = fixture({ ...reservation("br", now + 3600), brazil_checkout: true }, (_url, init) => {
+    if (init?.method === "POST") {
+      const payload = new URLSearchParams(String(init.body));
+      const methods = [...payload].filter(([key]) => key.startsWith("payment_method_types"))
+        .map(([, value]) => value);
+      assert.deepEqual(methods, ["card", "pix", "boleto"]);
+      assert.equal(payload.get("mode"), "subscription");
+      assert.equal(payload.get("currency"), "brl");
+      assert.equal(payload.get("payment_method_options[boleto][expires_after_days]"), "3");
+      assert.equal(payload.get("payment_method_options[pix][mandate_options][payment_schedule]"), "monthly");
+      assert.equal(new Headers(init.headers).get("stripe-version"), "2026-11-18.endive");
+    }
+    return Response.json(session("cs_br", "open"));
+  });
+  assert.deepEqual(await test.run(), { url: sessionUrl });
 });
 
 Deno.test("replaces a confirmed expired session and creates a new checkout in one request", async () => {

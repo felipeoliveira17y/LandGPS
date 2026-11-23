@@ -5,3 +5,7 @@ verify_jwt = false
 
 [functions.checkout-return]
 verify_jwt = false
+
+# The function explicitly validates the bearer token with Supabase Auth.
+[functions.delete-account]
+verify_jwt = false

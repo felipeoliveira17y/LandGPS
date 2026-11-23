@@ -249,11 +249,18 @@ dialog::backdrop { background: var(--overlay); }
   .review-tabs button { flex: 0 0 auto; white-space: nowrap; }
   .export-options { grid-template-columns: 1fr; }
 }
+@media screen and (prefers-reduced-motion: no-preference) {
+  .welcome:not([hidden]), .review:not([hidden]), .review-panel:not([hidden]) {
+    animation: fadeSlideIn 180ms ease-out;
+  }
+}
+
 @media print {
   body, html { background: var(--surface) !important; color: var(--ink) !important; }
   .top, .library, .toolbar, #action-status, #survey-map, #map-status, dialog { display: none !important; }
   #survey:not([hidden]) > .review-panel[hidden]:not(#panel-history) { display: block !important; }
   #panel-history, .survey-sheet { display: none !important; }
+  :root:not([data-plan="pro"]) #survey > #panel-memorial { display: none !important; }
   .vertex-button { min-height: 0; padding: 0; border: 0; background: transparent !important; color: inherit; }
   .workspace { display: block; padding: 0; }
   .panel, .metrics > div { background: var(--surface); color: var(--ink); }

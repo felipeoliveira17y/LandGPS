@@ -300,3 +300,35 @@ body.account-overlay-open {
   cursor: default;
   opacity: 0.58;
 }
+.account-privacy {
+  display: grid;
+  gap: .5rem;
+  padding-block: .85rem;
+  border-block: 1px solid var(--line);
+}
+.account-privacy h3 { margin: 0; color: var(--ink); font-size: 1rem; }
+.account-privacy a, .account-privacy button { justify-self: start; }
+#deleteAccountOpen { color: var(--danger); }
+
+.account-delete-dialog {
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 20px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.account-delete-dialog::backdrop { background: var(--overlay); }
+.account-delete-dialog h2 { margin-top: 0; font-size: 1.2rem; }
+.account-delete-dialog label { display: block; margin-block: .5rem; font-weight: 700; }
+.account-delete-dialog input {
+  width: 100%;
+  min-height: 44px;
+  padding-inline: .6rem;
+  color: var(--ink);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.account-delete-actions { display: flex; flex-wrap: wrap; justify-content: end; gap: .5rem; }

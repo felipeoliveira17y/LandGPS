@@ -66,6 +66,7 @@ Deno.serve(async (request) => {
           p_plan: plan,
           p_price_id: priceId,
           p_customer_email: user.email ?? null,
+          p_brazil_checkout: true,
         });
         if (error) throw error;
         return data as ReservationClaim;

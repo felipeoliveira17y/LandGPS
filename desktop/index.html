@@ -20,6 +20,7 @@
     <div class="toolbar">
       <button id="theme" type="button" aria-pressed="false">Modo escuro</button>
       <button id="account" type="button">Entrar na conta</button>
+      <button id="plans" type="button">Conhecer o Pro</button>
     </div>
   </header>
   <main class="workspace">
@@ -172,8 +173,24 @@
       <button id="download" type="button">Backup JSON</button>
       <button id="download-csv" type="button">Tabela CSV</button>
       <button id="download-kml" type="button">Mapa KML</button>
+      <button id="download-geojson" type="button">Mapa GeoJSON</button>
       <button id="print" type="button" class="primary">Memorial em PDF</button>
     </div>
+    <form method="dialog"><button type="submit">Fechar</button></form>
+  </dialog>
+  <dialog id="plans-dialog" aria-labelledby="plans-title">
+    <h2 id="plans-title">Landmensure Pro</h2>
+    <table class="plan-matrix">
+      <caption>Compare os planos</caption>
+      <thead><tr><th scope="col">Recurso</th><th scope="col">Gratuito</th><th scope="col">Pro</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Projetos e pontos</th><td>2 projetos, 10 pontos por projeto</td><td>Sem limite do plano</td></tr>
+        <tr><th scope="row">Mapa</th><td>Ruas</td><td>Ruas e satélite</td></tr>
+        <tr><th scope="row">Arquivos</th><td>Backup JSON</td><td>Backup, KML, CSV, GeoJSON e memorial completo</td></tr>
+        <tr><th scope="row">Painel Desktop</th><td>Prévia local</td><td>Sincronização e revisão completa</td></tr>
+      </tbody>
+    </table>
+    <p>Para assinar, abra <strong>Sua conta → Conhecer o Pro</strong> no aplicativo. O Stripe oferece cartão de crédito, Pix e boleto bancário conforme disponibilidade. O acesso é liberado após a confirmação do pagamento.</p>
     <form method="dialog"><button type="submit">Fechar</button></form>
   </dialog>
   <dialog id="login-dialog" aria-labelledby="login-title">

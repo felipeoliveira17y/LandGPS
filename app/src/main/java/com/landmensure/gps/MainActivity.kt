@@ -297,6 +297,20 @@ class MainActivity : Activity() {
             }
         }
         @JavascriptInterface fun getAccountState() { refreshAccountState() }
+        @JavascriptInterface fun getDistributionChannel() = BuildConfig.DISTRIBUTION_CHANNEL
+        @JavascriptInterface fun getPrivacyPolicyUrl() = BuildConfig.PUBLIC_WEB_URL
+            .takeIf { it.isNotEmpty() }?.let { "$it/privacy.html" }.orEmpty()
+
+        @JavascriptInterface fun deleteAccount(confirmation: String) {
+            accountScope.launch {
+                val result = withContext(Dispatchers.IO) { authService.deleteAccount(confirmation) }
+                if (result is AuthResult.Deleted && authService.currentSession() == null) {
+                    cancelOccupation("Coleta encerrada após a exclusão da conta.")
+                    stopLiveTracking()
+                }
+                publishAuthResult(result)
+            }
+        }
         @JavascriptInterface fun signUp(email: String, password: String) {
             accountScope.launch {
                 publishAuthResult(withContext(Dispatchers.IO) { authService.signUp(email, password) })
@@ -326,6 +340,7 @@ class MainActivity : Activity() {
             }
         }
         @JavascriptInterface fun subscribe(plan: String) {
+            if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) return
             val selectedPlan = when (plan) {
                 "weekly" -> SubscriptionPlan.WEEKLY
                 "monthly" -> SubscriptionPlan.MONTHLY
@@ -459,7 +474,7 @@ class MainActivity : Activity() {
 
     private fun saveFileToDownloads(name: String, content: String, mime: String) {
         try {
-            val allowedMimes = setOf("text/csv", "application/json", "application/vnd.google-earth.kml+xml", "text/plain")
+            val allowedMimes = setOf("text/csv", "application/json", "application/geo+json", "application/vnd.google-earth.kml+xml", "text/plain")
             require(mime in allowedMimes) { "Tipo de arquivo não permitido" }
             require(content.toByteArray(Charsets.UTF_8).size <= 5 * 1024 * 1024) { "Arquivo maior que 5 MB" }
             val safeName = name.substringAfterLast('/').substringAfterLast('\\')
@@ -694,6 +709,7 @@ class MainActivity : Activity() {
 
     private fun publishAuthResult(result: AuthResult) {
         when (result) {
+            is AuthResult.Deleted -> sendAccountEvent("account_deleted", "Conta excluída.", null, false, userId = result.userId)
             is AuthResult.SignedIn -> {
                 sendAccountEvent("signed_in", "Conta conectada.", result.email, true, userId = result.userId)
                 refreshAccountState()

@@ -147,6 +147,20 @@ export function surveyCsv(survey) {
     .map(row => row.map(cell).join(";")).join("\r\n");
 }
 
+export function surveyGeoJson(survey) {
+  const features = survey.pontos.map(point => ({
+    type: "Feature",
+    properties: { nome: point.nome },
+    geometry: { type: "Point", coordinates: [point.lng, point.lat] },
+  }));
+  const coordinates = survey.pontos.map(point => [point.lng, point.lat]);
+  if (coordinates.length >= 3) features.push({
+    type: "Feature", properties: { nome: "Contorno" },
+    geometry: { type: "Polygon", coordinates: [[...coordinates, coordinates[0]]] },
+  });
+  return JSON.stringify({ type: "FeatureCollection", features });
+}
+
 export function surveyKml(survey) {
   const escape = value => String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");

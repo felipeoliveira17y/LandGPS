@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excluir conta · Landmensure</title>
+  <link rel="icon" href="/landmensure.png" type="image/png">
+  <link rel="stylesheet" href="/field-theme.css">
+  <link rel="stylesheet" href="/legal.css">
+  <script type="module" src="/delete-account.mjs"></script>
+</head>
+<body>
+  <main class="legal-card">
+    <header class="legal-brand"><img src="/landmensure.png" width="40" height="40" alt=""><strong>Landmensure</strong></header>
+    <h1>Excluir conta</h1>
+    <p>Entre com a conta Landmensure que deseja excluir. A exclusão é permanente e remove seus levantamentos sincronizados. A assinatura Stripe vinculada será cancelada.</p>
+    <form id="account-deletion" method="post">
+      <label>E-mail <input name="email" type="email" autocomplete="username" required></label>
+      <label>Senha <input name="password" type="password" autocomplete="current-password" required></label>
+      <label>Digite EXCLUIR para confirmar <input name="confirmation" required pattern="EXCLUIR" autocomplete="off" autocapitalize="characters"></label>
+      <button type="submit" disabled>Excluir minha conta permanentemente</button>
+    </form>
+    <noscript>Ative o JavaScript para solicitar a exclusão nesta página.</noscript>
+    <p id="deletion-status" role="status" aria-live="polite"></p>
+    <p>Os arquivos exportados e as cópias locais no celular podem ser apagados nas configurações do aparelho. Confira a <a href="/privacy.html">Política de Privacidade</a>.</p>
+    <p>Se perdeu o acesso à conta, use a recuperação de senha ou fale com o <a href="https://wa.me/558881197489">atendimento do Landmensure</a>.</p>
+  </main>
+</body>
+</html>

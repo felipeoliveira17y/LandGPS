@@ -1,4 +1,4 @@
-import { measures, plotCoordinates, readBackup, readSurvey, surveyQuality, surveyCsv, surveyKml } from "./survey.mjs";
+import { measures, plotCoordinates, readBackup, readSurvey, surveyQuality, surveyCsv, surveyKml, surveyGeoJson } from "./survey.mjs";
 
 const $ = id => document.getElementById(id);
 const number = (n, places = 2) => n.toLocaleString("pt-BR", { maximumFractionDigits: places });
@@ -20,6 +20,40 @@ let surveys = [];
 let selected = 0;
 let session = null;
 let hasPro = false;
+function setPlan(pro) {
+  hasPro = pro;
+  document.documentElement.dataset.plan = pro ? "pro" : "free";
+  if (!pro && mapMode === "satellite") {
+    $("map-satellite").setAttribute("aria-pressed", "false");
+    $("map-street").setAttribute("aria-pressed", "true");
+    mapMode = "street";
+    renderMap();
+  }
+  if (!pro && reviewTab === "memorial") openReviewTab("overview");
+}
+function showPlans() {
+  if ($("export-dialog").open) $("export-dialog").close();
+  if (!$("plans-dialog").open) $("plans-dialog").showModal();
+}
+async function verifyPro() {
+  const token = session;
+  if (!token) { showPlans(); return false; }
+  try {
+    const pro = await api("/rest/v1/rpc/has_active_pro", { token, method: "POST", body: {} });
+    if (session !== token) return false;
+    setPlan(pro === true);
+    if (!hasPro) showPlans();
+    return hasPro;
+  } catch {
+    if (session === token) {
+      setPlan(false);
+      $("action-status").textContent = "Não foi possível verificar o plano. Confira a conexão.";
+      $("welcome-status").textContent = $("action-status").textContent;
+    }
+    return false;
+  }
+}
+$("plans").addEventListener("click", showPlans);
 let requestGeneration = 0;
 let cloudOffset = 0;
 let hasMore = false;
@@ -68,6 +102,7 @@ let reviewTab = "overview";
 const tabs = [...document.querySelectorAll(".review-tabs [role=tab]")];
 
 function openReviewTab(name, focus = false) {
+  if (name === "memorial" && !hasPro) { showPlans(); return; }
   reviewTab = name;
   for (const tab of tabs) {
     const active = tab.id === "tab-" + name;
@@ -162,7 +197,8 @@ function renderMap() {
 }
 
 for (const mode of ["schematic", "street", "satellite"]) {
-  $("map-" + mode).addEventListener("click", () => {
+  $("map-" + mode).addEventListener("click", async () => {
+    if (mode === "satellite" && !await verifyPro()) return;
     $("map-" + mapMode).setAttribute("aria-pressed", "false");
     mapMode = mode;
     $("map-" + mapMode).setAttribute("aria-pressed", "true");
@@ -206,7 +242,7 @@ function showSurvey() {
       return `De ${a.nome} a ${b.nome} são ${number(distance)} m${direction}.`;
     }).join(" ") + (closed ? ` O último trecho retorna a ${survey.pontos[0].nome}.` : "")
     : `A coleta contém o vértice ${survey.pontos[0].nome}, sem trechos entre vértices.`;
-  $("print").textContent = source === "demo" || hasPro ? "Memorial em PDF" : "Memorial em PDF · Pro";
+  $("print").textContent = hasPro ? "Memorial em PDF" : "Memorial em PDF · Pro";
 
   const plotted = plotCoordinates(survey.pontos);
   const nodes = [svg(closed ? "polygon" : "polyline", {
@@ -492,6 +528,8 @@ $("history-more").addEventListener("click", () => void loadHistory());
 
 async function loadCloud(append = false) {
   if (!session) { $("login-dialog").showModal(); return; }
+  const previousGeneration = requestGeneration;
+  if (!await verifyPro() || previousGeneration !== requestGeneration) return;
   if (!append) { cloudOffset = 0; cloudIds.clear(); }
   const generation = append ? ++requestGeneration : switchSource("cloud", []);
   const currentSession = session;
@@ -499,12 +537,8 @@ async function loadCloud(append = false) {
   $("more").disabled = true;
   try {
     const limit = 20;
-    const [records, pro] = await Promise.all([
-      api(`/rest/v1/survey_revisions?select=survey_id,revision_id,created_at,snapshot&order=created_at.desc,revision_id.desc&limit=${limit}&offset=${cloudOffset}`, { token: currentSession }),
-      api("/rest/v1/rpc/has_active_pro", { token: currentSession, method: "POST", body: {} }).catch(() => false),
-    ]);
+    const records = await api(`/rest/v1/survey_revisions?select=survey_id,revision_id,created_at,snapshot&order=created_at.desc,revision_id.desc&limit=${limit}&offset=${cloudOffset}`, { token: currentSession });
     if (generation !== requestGeneration || session !== currentSession) return;
-    hasPro = pro === true;
     cloudOffset += records.length;
     hasMore = records.length === limit;
     for (const record of records) {
@@ -521,7 +555,7 @@ async function loadCloud(append = false) {
     if (generation !== requestGeneration) return;
     if (error.status === 401) {
       session = null;
-      hasPro = false;
+      setPlan(false);
       switchSource("cloud", [], "Sua sessão expirou. Entre novamente para consultar os levantamentos.");
     } else {
       $("library-status").textContent = error.code === "PGRST205" || error.status === 404
@@ -537,7 +571,7 @@ $("account").addEventListener("click", () => {
   if (!session) { $("login-status").textContent = ""; $("login-dialog").showModal(); return; }
   const previous = session;
   session = null;
-  hasPro = false;
+  setPlan(false);
   switchSource("welcome", [], "Você saiu da conta.");
   void api("/auth/v1/logout?scope=local", { token: previous, method: "POST" }).catch(() => {});
 });
@@ -708,6 +742,9 @@ $("backup").addEventListener("change", async event => {
     const { surveys: imported, rejected } = readBackup(JSON.parse(await file.text()));
     if (generation !== requestGeneration) return;
     if (!imported.length) throw new Error("O backup não contém levantamentos válidos.");
+    if (!hasPro && (imported.length > 2 || imported.some(survey => survey.pontos.length > 10))) {
+      if (!await verifyPro() || generation !== requestGeneration) return;
+    }
     switchSource("local", imported, rejected ? `${rejected} levantamento(s) com dados inválidos ficaram de fora.` : "");
   } catch (error) {
     if (generation === requestGeneration) {
@@ -750,10 +787,11 @@ $("download").addEventListener("click", () => {
 for (const [id, extension, format, type] of [
   ["download-csv", "csv", surveyCsv, "text/csv;charset=utf-8"],
   ["download-kml", "kml", surveyKml, "application/vnd.google-earth.kml+xml"],
+  ["download-geojson", "geojson", surveyGeoJson, "application/geo+json"],
 ]) {
-  $(id).addEventListener("click", () => {
+  $(id).addEventListener("click", async () => {
     const survey = surveys[selected];
-    if (survey) downloadSurvey(survey, extension, format(survey), type);
+    if (survey && await verifyPro() && surveys[selected] === survey) downloadSurvey(survey, extension, format(survey), type);
   });
 }
 
@@ -765,28 +803,8 @@ function printSurvey(survey) {
 
 $("print").addEventListener("click", async () => {
   exportDialog.close();
-  const currentSurvey = surveys[selected];
-  if (!currentSurvey) return;
-  if (source === "demo") { printSurvey(currentSurvey); return; }
-  if (!session) { $("login-dialog").showModal(); return; }
-  const currentSession = session;
-  $("print").disabled = true;
-  try {
-    const pro = await api("/rest/v1/rpc/has_active_pro", {
-      token: currentSession, method: "POST", body: {},
-    });
-    if (session !== currentSession || surveys[selected] !== currentSurvey) return;
-    hasPro = pro === true;
-    $("print").textContent = hasPro ? "Memorial em PDF" : "Memorial em PDF · Pro";
-    if (hasPro) printSurvey(currentSurvey);
-    else $("action-status").textContent = "A impressão do memorial técnico está disponível com o plano Pro.";
-  } catch {
-    if (session === currentSession && surveys[selected] === currentSurvey) {
-      $("action-status").textContent = "Não foi possível verificar o plano. Confira a conexão e tente novamente.";
-    }
-  } finally {
-    $("print").disabled = false;
-  }
+  const survey = surveys[selected];
+  if (survey && await verifyPro() && surveys[selected] === survey) printSurvey(survey);
 });
 const themeKey = "landmensure_desktop_theme";
 const systemTheme = matchMedia("(prefers-color-scheme: dark)");

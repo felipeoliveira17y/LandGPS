@@ -15,6 +15,7 @@ data class AccountSession(
 )
 
 sealed interface AuthResult {
+    data class Deleted(val userId: String) : AuthResult
     data class SignedIn(val email: String?, val userId: String) : AuthResult
     data object ConfirmationSent : AuthResult
     data object SignedOut : AuthResult

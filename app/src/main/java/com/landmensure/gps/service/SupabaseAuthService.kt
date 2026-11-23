@@ -190,6 +190,35 @@ class SupabaseAuthService(context: Context) {
         return AuthResult.SignedOut
     }
 
+    suspend fun deleteAccount(confirmation: String): AuthResult {
+        val owner = currentSession()?.userId ?: return AuthResult.Failed("Entre na sua conta novamente.")
+        if (confirmation != "EXCLUIR") return AuthResult.Failed("Digite EXCLUIR para confirmar.")
+        if (!ensureActiveSession()) return AuthResult.Failed("Entre na sua conta novamente.")
+        val session = currentSession()?.takeIf { it.userId == owner }
+            ?: return AuthResult.Failed("Entre na sua conta novamente.")
+
+        val (status, body) = runCatching {
+            HttpClient(Android).use { client ->
+                val response = client.post("${BuildConfig.SUPABASE_FUNCTIONS_URL}/delete-account") {
+                    commonHeaders(session.accessToken)
+                    setBody(buildJsonObject { put("confirmation", confirmation) }.toString())
+                }
+                response.status.value to response.bodyAsText()
+            }
+        }.getOrElse {
+            if (it is kotlinx.coroutines.CancellationException) throw it
+            return AuthResult.Failed("Não foi possível confirmar a exclusão. Confira sua conexão e tente novamente.")
+        }
+        val result = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
+        if (status !in 200..299 || result?.get("deleted")?.toString() != "true") {
+            return AuthResult.Failed(result?.stringValue("error") ?: "Não foi possível concluir a exclusão. Tente novamente.")
+        }
+        synchronized(sessionLock) {
+            if (currentSession()?.userId == owner) prefs.edit().clear().apply()
+        }
+        return AuthResult.Deleted(owner)
+    }
+
     private suspend fun request(
         path: String,
         body: JsonObject,

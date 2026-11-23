@@ -2,6 +2,14 @@ name: Generate signed Landmensure release
 
 on:
   workflow_dispatch:
+    inputs:
+      channel:
+        description: Canal de distribuição
+        type: choice
+        options:
+          - direct
+          - playStore
+        default: direct
 
 permissions:
   contents: read
@@ -11,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      LANDMENSURE_PUBLIC_WEB_URL: ${{ vars.LANDMENSURE_PUBLIC_WEB_URL }}
       ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -44,14 +53,22 @@ jobs:
       - name: Preparar keystore
         run: echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/landmensure-release.keystore"
 
-      - name: Testar, analisar e gerar APK assinado
+      - name: Testar, analisar e gerar pacote assinado
         env:
           ANDROID_KEYSTORE_FILE: ${{ github.workspace }}/landmensure-release.keystore
-        run: gradle --no-daemon testDebugUnitTest lintDebug assembleRelease
+          DISTRIBUTION_CHANNEL: ${{ inputs.channel }}
+        run: |
+          if [ "$DISTRIBUTION_CHANNEL" = 'playStore' ]; then
+            gradle --no-daemon testPlayStoreDebugUnitTest lintPlayStoreRelease bundlePlayStoreRelease
+          else
+            gradle --no-daemon testDirectDebugUnitTest lintDirectRelease assembleDirectRelease
+          fi
 
-      - name: Publicar APK assinado
+      - name: Disponibilizar pacote assinado
         uses: actions/upload-artifact@v4
         with:
-          name: GPS-Landmensure-2.3.3-release
-          path: app/build/outputs/apk/release/app-release.apk
+          name: GPS-Landmensure-${{ inputs.channel }}-release
+          path: |
+            app/build/outputs/apk/direct/release/app-direct-release.apk
+            app/build/outputs/bundle/playStoreRelease/app-playStore-release.aab
           if-no-files-found: error

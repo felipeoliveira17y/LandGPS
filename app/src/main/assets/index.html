@@ -1572,7 +1572,8 @@
                   <path d="M3 10h18" />
                 </svg>
                 Abrir levantamento</button
-              ><button id="retrySurveySync" class="gray" type="button" onclick="sincronizarLevantamentos()" hidden>
+              ><button class="gray" onclick="excluirLevantamentoLocal()">Excluir cópia local</button
+              ><button id="retrySurveySync" class="gray" type="button" onclick="if (exigirPro()) sincronizarLevantamentos()" hidden>
                 Sincronizar com o painel</button
               ><button class="gray" onclick="exportBackup()">
                 <svg
@@ -1653,6 +1654,7 @@
                   />
                 </svg>
                 Exportar KML</button
+              ><button class="gray" onclick="exportGeoJSON()">Exportar GeoJSON</button
               ><button onclick="imprimirMemorial()">
                 <svg
                   class="icon"
@@ -1916,7 +1918,7 @@
         document.documentElement.dataset.theme = tema;
         if (window.Android && typeof Android.setDarkBars === "function")
           Android.setDarkBars(tema === "dark");
-        const mapa = d.mapa === "sat" ? "sat" : "osm";
+        const mapa = temPro() && d.mapa === "sat" ? "sat" : "osm";
         if (baseAtual !== mapa) {
           map.removeLayer(baseAtual === "sat" ? sat : osm);
           (mapa === "sat" ? sat : osm).addTo(map);
@@ -1944,7 +1946,7 @@
         const d = lerDefinicoes(),
           modal = document.getElementById("settingsModal");
         document.getElementById("settingCapture").value = d.coleta || "30";
-        document.getElementById("settingMap").value = d.mapa || "osm";
+        document.getElementById("settingMap").value = temPro() ? d.mapa || "osm" : "osm";
         document.getElementById("settingTheme").value =
           d.tema === "dark" ? "dark" : "light";
         modal.hidden = false;
@@ -2020,6 +2022,22 @@
         poly = null,
         poligonoGerado = false;
       let surveyOwner = null;
+      const temPro = () => document.documentElement.dataset.plan === "pro";
+      function exigirPro() {
+        if (temPro()) return true;
+        window.landmensureAccount?.openPlans();
+        return false;
+      }
+      function limiteColeta() {
+        if (temPro()) return "";
+        if (pontos.length >= 10) return "O plano gratuito permite até 10 pontos por projeto.";
+        const salvos = lerLevantamentos();
+        const nome = limparTexto(document.getElementById("projeto").value, 120);
+        if (Object.keys(salvos).length >= 2 && !Object.hasOwn(salvos, nome)) {
+          return "O plano gratuito permite até 2 projetos. Abra um levantamento salvo para continuar.";
+        }
+        return "";
+      }
       function nomePadrao(i) {
         return "P" + (i + 1);
       }
@@ -2201,7 +2219,7 @@
         });
         mem += `<hr><b>Área:</b> ${area.toFixed(2)} m² (${(area / 10000).toFixed(4)} ha)<br><b>Perímetro:</b> ${per.toFixed(2)} m`;
         document.getElementById("memorial").innerHTML = temPontos
-          ? mem
+          ? (temPro() ? mem : '<p class="hint">O memorial completo está disponível no Pro.</p><button class="gray" onclick="exigirPro()">Conhecer o Pro</button>')
           : '<p class="hint">O memorial aparece aqui conforme você coleta pontos.</p>';
         salvarRascunho();
       }
@@ -2259,6 +2277,7 @@
         document.getElementById("liveZona").textContent = u.zona;
         document.getElementById("liveAcc").textContent = acc.toFixed(1) + " m";
         const status = document.getElementById("liveStatus");
+        status.dataset.fix = "active";
         if (status.textContent !== "Recebendo posição do GPS.")
           status.textContent = "Recebendo posição do GPS.";
         document.getElementById("acc").textContent = acc.toFixed(1);
@@ -2275,6 +2294,8 @@
       }
       function receiveCapturedLocation(lat, lng, acc, time) {
         if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
+        const limite = limiteColeta();
+        if (limite) return receiveNativeLocationError(limite);
         if (!adicionarPontoGPS(lat, lng, acc)) {
           receiveNativeLocationError("O GPS enviou uma posição inválida. Tente coletar o ponto novamente.");
           return;
@@ -2282,7 +2303,9 @@
         finalizarOcupacao("Ponto salvo", "Ponto adicionado ao levantamento.");
       }
       function receiveLiveStatus(msg) {
-        document.getElementById("liveStatus").textContent = msg;
+        const status = document.getElementById("liveStatus");
+        delete status.dataset.fix;
+        status.textContent = msg;
       }
       function receiveNativeLocationError(msg) {
         finalizarOcupacao(msg, "");
@@ -2290,12 +2313,16 @@
       let satelliteDetails = [];
       function mostrarTela(tela) {
         const memorial = tela === "memorial";
+        if (memorial && !exigirPro()) return;
         document.getElementById("mainPage").style.display = memorial
           ? "none"
           : "block";
         document.getElementById("satPage").style.display = "none";
         document.getElementById("memorialPage").hidden = !memorial;
         if (memorial) atualizarProjetosMemorial();
+        const telaVisivel = document.getElementById(memorial ? "memorialPage" : "mainPage");
+        telaVisivel.classList.remove("field-enter");
+        requestAnimationFrame(() => telaVisivel.classList.add("field-enter"));
         document.querySelectorAll(".app-tab").forEach((b) => {
           const ativo = b.dataset.page === tela;
           b.classList.toggle("active", ativo);
@@ -2402,6 +2429,8 @@
         pdop,
       ) {
         if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
+        const limite = limiteColeta();
+        if (limite) return receiveNativeLocationError(limite);
         const saved = adicionarPontoGPS(lat, lng, acc, {
           samples: Number(samples),
           rms: Number(spread),
@@ -2428,12 +2457,20 @@
         finalizarOcupacao("Ponto salvo", "Ponto adicionado ao levantamento.");
       }
       function finalizarOcupacao(status, message) {
-        document.getElementById("btnColetar").disabled = false;
+        const button = document.getElementById("btnColetar");
+        button.disabled = false;
+        button.dataset.capture = status === "Ponto salvo" ? "saved" : "";
         document.getElementById("ocupacaoStatus").textContent = status;
         document.getElementById("captureNotice").textContent = message;
       }
       function capturar() {
         if (!surveyOwner) return;
+        const limite = limiteColeta();
+        if (limite) {
+          receiveNativeLocationError(limite);
+          exigirPro();
+          return;
+        }
         let segundos = Number(
           document.getElementById("tempoColeta").value || 0,
         );
@@ -2441,6 +2478,7 @@
         if (pontoAjustado) segundos = 120;
         let btn = document.getElementById("btnColetar");
         if (btn.disabled) return;
+        delete btn.dataset.capture;
         btn.disabled = true;
         document.getElementById("ocupacaoStatus").textContent = "Iniciando…";
         document.getElementById("captureNotice").textContent = "";
@@ -2553,6 +2591,7 @@
       }
       function alternarMapa() {
         if (baseAtual === "osm") {
+          if (!exigirPro()) return;
           map.removeLayer(osm);
           sat.addTo(map);
           baseAtual = "sat";
@@ -2593,12 +2632,14 @@
         const status = document.getElementById("surveySyncStatus");
         const envios = Object.values(db).map(item => item?.sincronizacao).filter(Boolean);
         const pendentes = envios.filter(item => item.status !== "synced" && item.status !== "invalid");
-        document.getElementById("retrySurveySync").hidden = !window.Android?.syncSurvey || !pendentes.length;
+        document.getElementById("retrySurveySync").hidden = !window.Android?.syncSurvey || (temPro() && !pendentes.length);
+        if (!temPro()) { status.textContent = ""; return; }
         status.textContent = envios.length ? envios.map(item =>
           item.nome + " — " + (enviosEmAndamento.get(surveyOwner) === item.revisao ? "Enviando…" : mensagensSincronizacao[item.status]),
         ).join(" • ") : "";
       }
       function sincronizarLevantamentos() {
+        if (!temPro()) return;
         if (!surveyOwner || !window.Android?.syncSurvey) return;
         const db = lerLevantamentos();
         if (enviosEmAndamento.has(surveyOwner)) return;
@@ -2656,6 +2697,7 @@
         document.getElementById("savedMemorialStatus").textContent = "";
       });
       async function abrirMemorialSalvo() {
+        if (!exigirPro()) return;
         const select = document.getElementById("savedMemorialProject");
         const button = document.getElementById("savedMemorialOpen");
         const chave = select.value;
@@ -2799,6 +2841,14 @@
               throw Error("Formato de backup inválido.");
             if (!await dialogo({ titulo: "Restaurar backup?", mensagem: "Levantamentos com o mesmo nome serão substituídos.", acao: "Restaurar", cancelar: true }) || surveyOwner !== contaDeDestino) return;
             let atual = lerLevantamentos();
+            const nomes = new Set([...Object.keys(atual), ...Object.keys(d.levantamentos)]);
+            if (d.rascunho?.pontos.length) nomes.add(limparTexto(d.rascunho.projeto, 120));
+            if (!temPro() && (nomes.size > 2 ||
+              Object.values(d.levantamentos).some(item => item.pontos.length > 10) || d.rascunho?.pontos.length > 10)) {
+              avisar("O backup excede o limite de 2 projetos ou 10 pontos por projeto do plano gratuito.");
+              exigirPro();
+              return;
+            }
             for (const [nome, item] of Object.entries(d.levantamentos)) {
               const { sincronizacao, ...snapshot } = item;
               atual[nome] = snapshot;
@@ -2858,6 +2908,11 @@
         if (!nome) return avisar("Informe um nome válido para o levantamento.");
         document.getElementById("projeto").value = nome;
         let db = lerLevantamentos();
+        if (!temPro() && (pontos.length > 10 || (!Object.hasOwn(db, nome) && Object.keys(db).length >= 2))) {
+          avisar("O plano gratuito permite até 2 projetos e 10 pontos por projeto.");
+          exigirPro();
+          return;
+        }
         const idProjeto = db[nome]?.sincronizacao?.projeto;
         db[nome] = {
           pontos,
@@ -2918,7 +2973,29 @@
         a.remove();
         setTimeout(() => URL.revokeObjectURL(a.href), 1000);
       }
+      async function excluirLevantamentoLocal() {
+        const conta = surveyOwner;
+        if (!conta) return;
+        const nomes = Object.keys(lerLevantamentos());
+        if (!nomes.length) return avisar("Nenhum levantamento salvo no aparelho.");
+        const nome = await dialogo({ titulo: "Excluir cópia local?", campo: "Levantamento salvo", opcoes: nomes,
+          mensagem: "A exclusão libera espaço no aparelho. Revisões já sincronizadas continuam na conta.",
+          acao: "Excluir cópia local", cancelar: true, perigo: true });
+        if (!nome || surveyOwner !== conta) return;
+        const projetos = lerLevantamentos();
+        if (!Object.hasOwn(projetos, nome)) return;
+        delete projetos[nome];
+        try {
+          localStorage.setItem(chaveLevantamento("levantamentos"), JSON.stringify(projetos));
+        } catch (_) {
+          return avisar("Não foi possível excluir o levantamento.");
+        }
+        atualizarProjetosMemorial();
+        exibirSincronizacao(projetos);
+        avisar("Cópia local excluída.");
+      }
       function exportCSV() {
+        if (!exigirPro()) return;
         if (!pontos.length) return avisar("Nenhum ponto coletado.");
         let t =
           "Vertice,Latitude,Longitude,UTM_X,UTM_Y,Zona,Distancia_proximo_m,Azimute_graus\n";
@@ -2956,7 +3033,24 @@
         }
         return k + "</Document></kml>";
       }
+      function exportGeoJSON() {
+        if (!exigirPro()) return;
+        if (!pontos.length) return avisar("Nenhum ponto coletado.");
+        const features = pontos.map((p) => ({
+          type: "Feature",
+          properties: { nome: p.nome },
+          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+        }));
+        const coordenadas = pontos.map((p) => [p.lng, p.lat]);
+        if (coordenadas.length >= 3) features.push({
+          type: "Feature", properties: { nome: "Contorno" },
+          geometry: { type: "Polygon", coordinates: [[...coordenadas, coordenadas[0]]] },
+        });
+        baixar("GPS_Landmensure_levantamento.geojson",
+          JSON.stringify({ type: "FeatureCollection", features }), "application/geo+json");
+      }
       function exportKML() {
+        if (!exigirPro()) return;
         if (!pontos.length) return avisar("Nenhum ponto coletado.");
         baixar(
           "GPS_Landmensure_levantamento.kml",
@@ -2965,6 +3059,7 @@
         );
       }
       function imprimirMemorial() {
+        if (!exigirPro()) return;
         if (pontos.length < 2) return avisar("Colete pelo menos 2 pontos.");
         let projeto = escapeHtml(
             limparTexto(document.getElementById("projeto").value, 120) ||
@@ -3006,12 +3101,19 @@
         document.getElementById("acc").textContent = "-";
         atualizarDados();
       }
+      window.addEventListener("landmensure:entitlement", () => {
+        document.querySelector('#settingMap option[value="sat"]').disabled = !temPro();
+        if (!temPro() && baseAtual === "sat") alternarMapa();
+        if (!temPro() && !document.getElementById("memorialPage").hidden) mostrarTela("gnss");
+        exibirSincronizacao();
+      });
       window.addEventListener("landmensure:account-state", (event) => {
         const { signedIn, userId, pro } = event.detail;
         const nextOwner = signedIn && typeof userId === "string" &&
           /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(userId)
           ? userId.toLowerCase() : null;
         if (nextOwner === surveyOwner) {
+          if (surveyOwner) atualizarDados();
           if (pro) sincronizarLevantamentos();
           return;
         }
@@ -3036,7 +3138,7 @@
         }
         document.getElementById("lastCaptureQuality").hidden = true;
         document.getElementById("stability").textContent = "Aguardando";
-        document.getElementById("liveStatus").textContent = "Toque em “Coletar ponto” para iniciar o GPS.";
+        receiveLiveStatus("Toque em “Coletar ponto” para iniciar o GPS.");
         document.getElementById("ocupacaoStatus").textContent = "Pronto";
         document.getElementById("btnColetar").disabled = false;
         if (hadOwner) {

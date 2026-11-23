@@ -7,11 +7,12 @@ export type CheckoutReservation = {
   customer_email: string | null;
   expires_at: number;
   stripe_session_id: string | null;
+  brazil_checkout?: boolean | null;
 };
 
 export type ReservationClaim =
   | { allowed: true; reservation: CheckoutReservation }
-  | { allowed: false; reason: "unauthenticated" | "already_pro" | "rate_limited" };
+  | { allowed: false; reason: "unauthenticated" | "already_pro" | "rate_limited" | "account_deleting" };
 
 type ReservationStore = {
   claim(): Promise<ReservationClaim>;
@@ -23,6 +24,18 @@ const blocked = (error: string) => ({ error, status: 409 } as const);
 
 const completed = "Já existe uma assinatura vinculada ao pagamento anterior.";
 const pending = "Não foi possível confirmar o estado do pagamento anterior.";
+
+const brazilCheckout = (reservation: CheckoutReservation) => ({
+  currency: "brl",
+  payment_method_types: ["card", "pix", "boleto"] satisfies Stripe.Checkout.SessionCreateParams.PaymentMethodType[],
+  payment_method_options: {
+    boleto: { expires_after_days: 3 },
+    pix: {
+      expires_after_seconds: 1800,
+      mandate_options: { payment_schedule: reservation.plan },
+    },
+  },
+});
 
 async function closedSession(stripe: Stripe, session: Stripe.Checkout.Session) {
   if (session.status === "expired") return session.payment_status === "paid" ? pending : null;
@@ -51,6 +64,8 @@ export async function resolveCheckout(
         ? "Você já possui um plano Pro ativo."
         : claim.reason === "rate_limited"
         ? "Muitas tentativas de pagamento. Aguarde alguns minutos e tente novamente."
+        : claim.reason === "account_deleting"
+        ? "A conta está em processo de exclusão."
         : "Sessão inválida.");
     }
     const reservation = claim.reservation;
@@ -66,6 +81,7 @@ export async function resolveCheckout(
       // Preserve both the key and the original request parameters across retries and deploys.
       const metadata = { plan: reservation.plan, user_id: userId };
       const created = await stripe.checkout.sessions.create({
+        ...(reservation.brazil_checkout ? brazilCheckout(reservation) : {}),
         mode: "subscription",
         client_reference_id: userId,
         customer_email: reservation.customer_email ?? undefined,
@@ -75,7 +91,11 @@ export async function resolveCheckout(
         cancel_url: `${returnUrl}?payment=cancelled`,
         metadata,
         subscription_data: { metadata },
-      }, { idempotencyKey: `landmensure-checkout-${reservation.request_id}` });
+      }, {
+        idempotencyKey: `landmensure-checkout-${reservation.request_id}`,
+        // Keep Acacia reads and old idempotent writes on their original API version.
+        apiVersion: reservation.brazil_checkout ? "2026-11-18.endive" : undefined,
+      });
       // A replay can return the original response even after the session has closed.
       session = await stripe.checkout.sessions.retrieve(created.id);
       if (session.client_reference_id !== userId) return blocked(pending);
