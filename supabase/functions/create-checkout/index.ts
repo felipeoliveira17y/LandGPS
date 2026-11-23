@@ -1,6 +1,8 @@
 import Stripe from "npm:stripe@17.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+import { type ReservationClaim, resolveCheckout } from "./checkout.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -24,7 +26,9 @@ Deno.serve(async (request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabasePublishableKey = publishableKey();
   const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-  if (!supabaseUrl || !supabasePublishableKey || !stripeSecretKey) {
+  const configuredSecrets = Deno.env.get("SUPABASE_SECRET_KEYS");
+  const serviceKey = configuredSecrets ? JSON.parse(configuredSecrets).default : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !supabasePublishableKey || !stripeSecretKey || !serviceKey) {
     console.error("Secrets obrigatórios não configurados.");
     return json({ error: "Serviço de pagamento indisponível." }, 500);
   }
@@ -51,35 +55,38 @@ Deno.serve(async (request) => {
   const priceId = prices[plan];
   if (!priceId) return json({ error: "Plano indisponível." }, 503);
 
-  const { data: checkoutPermission, error: checkoutPermissionError } = await supabase
-    .rpc("claim_checkout_attempt");
-  if (checkoutPermissionError) {
-    console.error("Não foi possível validar tentativa de checkout.", checkoutPermissionError);
-    return json({ error: "Não foi possível preparar o pagamento. Tente novamente em instantes." }, 503);
+  const admin = createClient(supabaseUrl, serviceKey);
+  const reservations = () => admin.from("checkout_reservations");
+  const stripe = new Stripe(stripeSecretKey, { timeout: 10000, maxNetworkRetries: 0 });
+  try {
+    const result = await resolveCheckout(stripe, {
+      async claim() {
+        const { data, error } = await admin.rpc("claim_checkout_reservation", {
+          p_user_id: user.id,
+          p_plan: plan,
+          p_price_id: priceId,
+          p_customer_email: user.email ?? null,
+        });
+        if (error) throw error;
+        return data as ReservationClaim;
+      },
+      async save(reservation, session) {
+        const saved = await reservations().update({
+          stripe_session_id: session.id,
+          stripe_session_url: session.url,
+        }).eq("user_id", user.id).eq("request_id", reservation.request_id)
+          .select("request_id").maybeSingle();
+        if (saved.error) throw saved.error;
+        return !!saved.data;
+      },
+      async remove(reservation) {
+        const removed = await reservations().delete()
+          .eq("user_id", user.id).eq("request_id", reservation.request_id);
+        if (removed.error) throw removed.error;
+      },
+    }, { userId: user.id, plan, returnUrl: `${supabaseUrl}/functions/v1/checkout-return` });
+    return "url" in result ? json({ url: result.url }) : json({ error: result.error }, result.status);
+  } catch {
+    return json({ error: "Não foi possível confirmar o checkout. Tente novamente." }, 503);
   }
-  const permission = checkoutPermission as { allowed?: boolean; reason?: string } | null;
-  if (!permission?.allowed) {
-    const message = permission?.reason === "already_pro"
-      ? "Você já possui um plano Pro ativo. Gerencie a assinatura pelo atendimento."
-      : permission?.reason === "rate_limited"
-      ? "Muitas tentativas de pagamento. Aguarde alguns minutos e tente novamente."
-      : "Sessão inválida.";
-    return json({ error: message }, 409);
-  }
-
-  const stripe = new Stripe(stripeSecretKey);
-  const checkoutReturnUrl = `${supabaseUrl}/functions/v1/checkout-return`;
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    client_reference_id: user.id,
-    customer_email: user.email ?? undefined,
-    line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${checkoutReturnUrl}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${checkoutReturnUrl}?payment=cancelled`,
-    metadata: { plan, user_id: user.id },
-    subscription_data: { metadata: { plan, user_id: user.id } },
-  });
-
-  if (!session.url) return json({ error: "Não foi possível criar o checkout." }, 502);
-  return json({ url: session.url });
 });

@@ -10,20 +10,13 @@
     <link rel="stylesheet" href="memorial/assets/leaflet-Ds4Udj8m.css" />
     <style>
       #deletePointDialog { width: min(400px, calc(100% - 32px)); padding: 22px; border: 1px solid var(--line); border-radius: 18px; color: var(--ink); background: var(--surface); }
-      #deletePointDialog::backdrop { background: #10231db3; }
+      #deletePointDialog::backdrop { background: var(--overlay); }
       #deletePointDialog h2 { margin: 0; font-size: 20px; }
       #deletePointDialog p { color: var(--muted); }
       #dialogField { display: grid; gap: 6px; margin: 12px 0; }
       #dialogField[hidden] { display: none; }
       #dialogField input, #dialogField select { width: 100%; min-height: 44px; }
       #deletePointDialog .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-      :root {
-        --orange: #f45100;
-        --navy: #173447;
-        --bg: #f4f6f8;
-        --danger: #b42318;
-        --blue: #175cd3;
-      }
       * {
         box-sizing: border-box;
       }
@@ -31,14 +24,14 @@
         font-family: Arial, sans-serif;
         margin: 0;
         background: var(--bg);
-        color: #1d2939;
+        color: var(--ink);
       }
       .brand {
-        background: #fff;
+        background: var(--surface);
         padding: 8px 14px;
         text-align: center;
         border-bottom: 4px solid var(--orange);
-        box-shadow: 0 2px 8px #0002;
+        box-shadow: var(--shadow);
       }
       .brand img {
         max-width: 360px;
@@ -49,7 +42,7 @@
       .brand .sub {
         font-size: 13px;
         font-weight: 700;
-        color: var(--navy);
+        color: var(--primary-ink);
         margin-top: -4px;
       }
       .wrap {
@@ -58,11 +51,11 @@
         margin: auto;
       }
       .card {
-        background: #fff;
+        background: var(--surface);
         padding: 12px;
         border-radius: 14px;
         margin: 10px 0;
-        box-shadow: 0 1px 5px #0001;
+        box-shadow: var(--shadow);
       }
       .project {
         display: grid;
@@ -72,7 +65,7 @@
       .project input {
         width: 100%;
         padding: 10px;
-        border: 1px solid #d0d5dd;
+        border: 1px solid var(--line);
         border-radius: 8px;
       }
       .actions {
@@ -89,26 +82,30 @@
         border-radius: 9px;
         cursor: pointer;
         font-weight: 700;
-        background: var(--orange);
-        color: #fff;
+        background: var(--action-fill);
+        color: var(--on-action);
         font-size: 13px;
       }
       button.blue {
-        background: var(--blue);
+        background: var(--secondary-fill);
+        color: var(--on-secondary);
       }
       button.navy {
-        background: var(--navy);
+        background: var(--primary-fill);
+        color: var(--on-primary);
       }
       button.gray {
-        background: #667085;
+        background: var(--soft);
+        color: var(--ink);
       }
       button.danger {
-        background: var(--danger);
+        background: var(--danger-soft);
+        color: var(--danger);
       }
       #map {
         height: 390px;
         border-radius: 12px;
-        border: 1px solid #d0d5dd;
+        border: 1px solid var(--line);
       }
       .stats {
         display: grid;
@@ -116,14 +113,14 @@
         gap: 8px;
       }
       .stat {
-        background: #f9fafb;
+        background: var(--soft);
         border-radius: 9px;
         padding: 10px;
       }
       .stat b {
         display: block;
         font-size: 12px;
-        color: #667085;
+        color: var(--muted);
       }
       .stat span {
         font-size: 17px;
@@ -139,13 +136,13 @@
       }
       td,
       th {
-        border: 1px solid #e4e7ec;
+        border: 1px solid var(--line);
         padding: 7px;
         font-size: 12px;
         text-align: center;
       }
       th {
-        background: #f2f4f7;
+        background: var(--soft);
       }
       .mini {
         padding: 6px 8px;
@@ -153,7 +150,7 @@
       }
       .hint {
         font-size: 12px;
-        color: #667085;
+        color: var(--muted);
         margin-top: 8px;
       }
       .livegrid {
@@ -162,15 +159,15 @@
         gap: 8px;
       }
       .liveitem {
-        background: #f9fafb;
-        border: 1px solid #e4e7ec;
+        background: var(--soft);
+        border: 1px solid var(--line);
         border-radius: 10px;
         padding: 9px;
       }
       .liveitem b {
         display: block;
         font-size: 11px;
-        color: #667085;
+        color: var(--muted);
       }
       .liveitem span {
         font-size: 15px;
@@ -178,12 +175,12 @@
       }
       .livehead {
         font-weight: 800;
-        color: var(--navy);
+        color: var(--primary-ink);
         margin-bottom: 8px;
       }
       .liveok {
         font-size: 11px;
-        color: #475467;
+        color: var(--muted);
         margin-top: 8px;
       }
       @media (max-width: 520px) {
@@ -226,11 +223,11 @@
         font-weight: 800;
       }
       .usedyes {
-        color: #067647;
+        color: var(--success);
         font-weight: 800;
       }
       .usedno {
-        color: #667085;
+        color: var(--muted);
       }
       .sat-table {
         min-width: 650px;
@@ -241,18 +238,6 @@
         }
       }
       /* Visual refresh: field-first layout, touch-friendly controls and clearer hierarchy. */
-      :root {
-        --orange: #e85b18;
-        --navy: #14364a;
-        --bg: #f2f5f8;
-        --danger: #b42318;
-        --blue: #1769aa;
-        --ink: #172b3a;
-        --muted: #667887;
-        --line: #e1e8ee;
-        --surface: #fff;
-        --soft: #f6f9fb;
-      }
       * {
         box-sizing: border-box;
       }
@@ -263,18 +248,18 @@
         font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
         margin: 0;
         background:
-          radial-gradient(ellipse at 50% -15%, #e5edf3 0, transparent 44%),
+          radial-gradient(ellipse at 50% -15%, var(--glow) 0, transparent 44%),
           var(--bg);
         color: var(--ink);
         line-height: 1.45;
         -webkit-font-smoothing: antialiased;
       }
       .brand {
-        background: linear-gradient(180deg, #fff, #fbfcfd);
+        background: linear-gradient(180deg, var(--surface), var(--soft));
         padding: 12px 16px 14px;
         text-align: center;
         border-bottom: 3px solid var(--orange);
-        box-shadow: 0 4px 16px #18354a12;
+        box-shadow: var(--shadow);
       }
       .brand img {
         max-width: 340px;
@@ -287,7 +272,7 @@
         letter-spacing: 0.055em;
         text-transform: uppercase;
         font-weight: 800;
-        color: var(--navy);
+        color: var(--primary-ink);
         margin-top: 0;
       }
       .wrap {
@@ -298,10 +283,10 @@
       .card {
         background: var(--surface);
         padding: 16px;
-        border: 1px solid #e8edf1;
+        border: 1px solid var(--line);
         border-radius: 18px;
         margin: 12px 0;
-        box-shadow: 0 5px 18px #1d35470b;
+        box-shadow: var(--shadow);
       }
       .project {
         gap: 10px;
@@ -311,9 +296,9 @@
         width: 100%;
         min-height: 46px;
         padding: 12px 13px;
-        border: 1px solid #d4dee6;
+        border: 1px solid var(--line);
         border-radius: 11px;
-        background: #fff;
+        background: var(--surface);
         color: var(--ink);
         font:
           600 14px/1.35 "Segoe UI",
@@ -327,11 +312,11 @@
       }
       .project input:focus,
       select:focus {
-        border-color: #5b9bc0;
-        box-shadow: 0 0 0 3px #1769aa18;
+        border-color: var(--navy);
+        box-shadow: 0 0 0 3px var(--selection);
       }
       .project input::placeholder {
-        color: #8999a5;
+        color: var(--muted);
         font-weight: 500;
       }
       #gpsfix {
@@ -341,7 +326,7 @@
       .livehead {
         font-size: 15px;
         font-weight: 850;
-        color: var(--navy);
+        color: var(--primary-ink);
         margin-bottom: 12px;
         letter-spacing: 0.01em;
       }
@@ -373,8 +358,8 @@
       .liveok {
         padding: 10px 12px;
         border-radius: 10px;
-        background: #eef5f8;
-        color: #315469;
+        background: var(--selection);
+        color: var(--primary-ink);
         font-size: 12px;
         font-weight: 650;
       }
@@ -406,7 +391,7 @@
       .signal-details summary {
         cursor: pointer;
         padding: 11px 0;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-size: 13px;
         font-weight: 700;
       }
@@ -443,7 +428,7 @@
           Arial,
           sans-serif;
         letter-spacing: 0.005em;
-        box-shadow: 0 2px 5px #102b3c12;
+        box-shadow: var(--shadow);
         transition:
           transform 0.12s,
           filter 0.12s,
@@ -453,39 +438,41 @@
       button:active {
         transform: translateY(1px);
         filter: brightness(0.96);
-        box-shadow: 0 1px 2px #102b3c12;
+        box-shadow: var(--shadow);
       }
       .actions button:focus-visible,
       button:focus-visible {
-        outline: 3px solid #1769aa55;
+        outline: 3px solid var(--navy);
         outline-offset: 2px;
       }
       button {
-        background: var(--orange);
-        color: white;
+        background: var(--action-fill);
+        color: var(--on-action);
       }
       button.blue {
-        background: var(--blue);
+        background: var(--secondary-fill);
+        color: var(--on-secondary);
       }
       button.navy {
-        background: var(--navy);
+        background: var(--primary-fill);
+        color: var(--on-primary);
       }
       button.gray {
-        background: #edf2f5;
-        color: #334c5d;
-        border-color: #e0e8ee;
+        background: var(--soft);
+        color: var(--ink);
+        border-color: var(--line);
         box-shadow: none;
       }
       button.danger {
-        background: #fff0ef;
-        color: #a42a22;
-        border-color: #f4d0cc;
+        background: var(--danger-soft);
+        color: var(--danger);
+        border-color: var(--danger-line);
         box-shadow: none;
       }
       #btnColetar {
         font-size: 15px;
         min-height: 56px;
-        box-shadow: 0 6px 14px #e85b1830;
+        box-shadow: var(--shadow);
       }
       .stats {
         gap: 9px;
@@ -506,29 +493,29 @@
       .stat span {
         font-size: 20px;
         font-weight: 800;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-variant-numeric: tabular-nums;
       }
       .stat:nth-child(2) {
-        background: #fff6ef;
-        border-color: #f6dfd0;
+        background: var(--warning-soft);
+        border-color: var(--warning-line);
       }
       .stat:nth-child(2) span,
       .stat:nth-child(3) span {
-        color: #b64a17;
+        color: var(--warning-ink);
       }
       #map {
         height: 390px;
         border-radius: 17px;
-        border: 1px solid #d6e0e7;
-        box-shadow: 0 6px 18px #19374a12;
+        border: 1px solid var(--line);
+        box-shadow: var(--shadow);
         overflow: hidden;
       }
       .leaflet-control-attribution {
         font-size: 9px;
       }
       .leaflet-bar a {
-        color: var(--navy) !important;
+        color: var(--primary-ink) !important;
       }
       .table-wrap {
         padding: 8px;
@@ -543,14 +530,14 @@
       td,
       th {
         border: 0;
-        border-bottom: 1px solid #e7edf1;
+        border-bottom: 1px solid var(--line);
         padding: 10px 9px;
         font-size: 12px;
         text-align: center;
       }
       th {
-        background: #f2f6f8;
-        color: #526879;
+        background: var(--soft);
+        color: var(--muted);
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.045em;
@@ -558,28 +545,28 @@
         top: 0;
       }
       tbody tr:nth-child(even) {
-        background: #fbfcfd;
+        background: var(--soft);
       }
       tbody tr:hover {
-        background: #f1f7fa;
+        background: var(--selection);
       }
       .mini {
         min-height: 34px;
         padding: 7px 10px;
         font-size: 11px;
         border-radius: 9px;
-        background: #e8f1f6;
-        color: #174861;
+        background: var(--soft);
+        color: var(--primary-ink);
         box-shadow: none;
       }
       #memorial {
         line-height: 1.75;
         font-size: 13px;
-        color: #354b5c;
+        color: var(--ink);
       }
       h3 {
         margin: 0 0 12px;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-size: 16px;
       }
       .sat-summary {
@@ -684,7 +671,7 @@
         content: "GPS  LANDMENSURE";
         position: absolute;
         left: 8px;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-size: 14px;
         font-weight: 900;
         letter-spacing: 0.08em;
@@ -713,7 +700,7 @@
         height: 4px;
         margin: 0 auto 12px;
         border-radius: 9px;
-        background: #bdc9d0;
+        background: var(--line);
       }
       .settings-field select {
         display: none;
@@ -734,14 +721,14 @@
       }
       .settings-choice.active {
         border-color: var(--blue);
-        background: #e8f2f8;
-        color: var(--navy);
+        background: var(--selection);
+        color: var(--primary-ink);
         box-shadow: inset 0 0 0 1px var(--blue);
       }
       .satpage .brand:before {
         content: "MONITOR GNSS  •  SATÉLITES VISÍVEIS";
         display: block;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-size: 13px;
         font-weight: 850;
         letter-spacing: 0.04em;
@@ -823,9 +810,9 @@
       .action-group {
         min-width: 0;
         padding: 14px;
-        border: 1px solid #e5ebf0;
+        border: 1px solid var(--line);
         border-radius: 15px;
-        background: linear-gradient(180deg, #fff, #fbfcfd);
+        background: linear-gradient(180deg, var(--surface), var(--soft));
       }
       .action-heading {
         display: flex;
@@ -835,7 +822,7 @@
       }
       .action-heading b {
         display: block;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-size: 13px;
         font-weight: 850;
       }
@@ -896,9 +883,9 @@
         transform: translateY(-50%);
         min-height: 40px;
         padding: 9px 11px;
-        background: #edf3f6;
-        color: var(--navy);
-        border: 1px solid #dce6ec;
+        background: var(--soft);
+        color: var(--primary-ink);
+        border: 1px solid var(--line);
         box-shadow: none;
         font-size: 11px;
       }
@@ -915,7 +902,7 @@
         display: grid;
         place-items: center;
         padding: 16px;
-        background: #101d28a8;
+        background: var(--overlay);
         backdrop-filter: blur(5px);
       }
       .settings-panel {
@@ -923,11 +910,11 @@
         max-height: min(90vh, 700px);
         overflow: auto;
         padding: 21px;
-        border: 1px solid #e6edf1;
+        border: 1px solid var(--line);
         border-radius: 20px;
         background: var(--surface);
         color: var(--ink);
-        box-shadow: 0 24px 70px #07152255;
+        box-shadow: var(--shadow);
       }
       .settings-head {
         display: flex;
@@ -938,12 +925,12 @@
       .settings-kicker {
         font-size: 10px;
         letter-spacing: 0.12em;
-        color: var(--orange);
+        color: var(--warning-ink);
         font-weight: 850;
       }
       .settings-head h2 {
         margin: 3px 0 0;
-        color: var(--navy);
+        color: var(--primary-ink);
         font-size: 22px;
       }
       .settings-close {
@@ -997,89 +984,6 @@
       .settings-footer button {
         min-height: 42px;
         padding: 10px 15px;
-      }
-      :root[data-theme="dark"] {
-        --bg: #101820;
-        --surface: #1b2831;
-        --soft: #202f39;
-        --ink: #e7eef2;
-        --muted: #a8b6bf;
-        --line: #344650;
-        --navy: #94c8df;
-        --orange: #f27835;
-        --blue: #378bc2;
-        --danger: #ffb2a9;
-      }
-      :root[data-theme="dark"] body {
-        background:
-          radial-gradient(ellipse at 50% -15%, #1d303c 0, transparent 44%),
-          var(--bg);
-        color: var(--ink);
-      }
-      :root[data-theme="dark"] .brand {
-        background: linear-gradient(180deg, #1b2831, #17232c);
-        border-bottom-color: var(--orange);
-      }
-      :root[data-theme="dark"] .card,
-      :root[data-theme="dark"] .action-group {
-        background: var(--surface);
-        border-color: var(--line);
-      }
-      :root[data-theme="dark"] .liveitem,
-      :root[data-theme="dark"] .stat,
-      :root[data-theme="dark"] .settings-field {
-        background: var(--soft);
-        border-color: var(--line);
-      }
-      :root[data-theme="dark"] .liveitem span,
-      :root[data-theme="dark"] .stat span,
-      :root[data-theme="dark"] #memorial {
-        color: var(--ink);
-      }
-      :root[data-theme="dark"] .liveok {
-        background: #233a46;
-        color: #c6dce7;
-      }
-      :root[data-theme="dark"] .hint {
-        color: #a8b6bf;
-      }
-      :root[data-theme="dark"] .project input,
-      :root[data-theme="dark"] select {
-        background: #17232c;
-        border-color: var(--line);
-        color: var(--ink);
-      }
-      :root[data-theme="dark"] .stat:nth-child(2) {
-        background: #35271f;
-        border-color: #68452d;
-      }
-      :root[data-theme="dark"] .stat:nth-child(2) span,
-      :root[data-theme="dark"] .stat:nth-child(3) span {
-        color: #ffad78;
-      }
-      :root[data-theme="dark"] th {
-        background: #22323c;
-        color: #c0cdd4;
-      }
-      :root[data-theme="dark"] td {
-        border-color: #344650;
-      }
-      :root[data-theme="dark"] tbody tr:nth-child(even) {
-        background: #1d2b34;
-      }
-      :root[data-theme="dark"] tbody tr:hover {
-        background: #263b47;
-      }
-      :root[data-theme="dark"] button.gray,
-      :root[data-theme="dark"] .settings-trigger {
-        background: #2b3b45;
-        color: #e7eef2;
-        border-color: #40525d;
-      }
-      :root[data-theme="dark"] button.danger {
-        background: #492b2a;
-        color: #ffc2ba;
-        border-color: #673937;
       }
       @media (max-width: 520px) {
         .brand-toprow {
@@ -1141,16 +1045,16 @@
         vertical-align: 1px;
       }
       .quality-good {
-        background: #15945b;
-        box-shadow: 0 0 0 3px #15945b20;
+        background: var(--success);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 16%, transparent);
       }
       .quality-mid {
-        background: #d99716;
-        box-shadow: 0 0 0 3px #d9971620;
+        background: var(--field-accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--field-accent) 16%, transparent);
       }
       .quality-low {
-        background: #d04444;
-        box-shadow: 0 0 0 3px #d0444420;
+        background: var(--danger);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent);
       }
       /* Shared app bar and GNSS/KML module tabs */
       #appToolbar {
@@ -1164,7 +1068,7 @@
         padding: 8px 18px;
         background: var(--surface);
         border-bottom: 1px solid var(--line);
-        box-shadow: 0 3px 14px #10233012;
+        box-shadow: var(--shadow);
       }
       .toolbar-title {
         display: flex;
@@ -1240,10 +1144,10 @@
         font-size: 10px;
       }
       .app-tab.active {
-        color: var(--navy);
+        color: var(--primary-ink);
         background: var(--surface);
         border-color: var(--line);
-        box-shadow: 0 2px 8px #10233010;
+        box-shadow: var(--shadow);
       }
       #mainPage > .brand,
       #satPage > .brand,
@@ -1263,14 +1167,11 @@
         height: calc(100dvh - 158px);
         min-height: 480px;
         border: 0;
-        background: #fff;
+        background: var(--surface);
       }
       #mainPage,
       #satPage {
         padding-top: 4px;
-      }
-      :root[data-theme="dark"] #memorialFrame {
-        background: #101820;
       }
       @media (max-width: 520px) {
         #appToolbar {
@@ -1301,7 +1202,7 @@
         border: 1px solid var(--line);
         border-radius: 16px;
         background: var(--surface);
-        box-shadow: 0 4px 16px #18354a0d;
+        box-shadow: var(--shadow);
       }
       .gnss-social-heading {
         margin: 0 0 10px;
@@ -1331,7 +1232,7 @@
       }
       .gnss-social-links a:hover {
         border-color: var(--blue);
-        background: #eaf1f5;
+        background: var(--selection);
       }
       .gnss-social-links svg {
         width: 18px;
@@ -1351,9 +1252,6 @@
         font-size: 10px;
         font-weight: 500;
         color: var(--muted);
-      }
-      :root[data-theme="dark"] .gnss-social-links a:hover {
-        background: #263b47;
       }
       @media (max-width: 620px) {
         .gnss-social-bar {
@@ -1375,7 +1273,7 @@
       }
     </style>
     <style>
-      .field-drawer > summary { padding: 7px 0; cursor: pointer; font-weight: 700; color: var(--navy); }
+      .field-drawer > summary { padding: 7px 0; cursor: pointer; font-weight: 700; color: var(--primary-ink); }
       .field-drawer > summary + * { margin-top: 10px; }
       .field-drawer .action-groups { padding: 0; border: 0; box-shadow: none; }
       .saved-memorial { width: min(100%, 900px); margin: 12px auto; }
@@ -2257,7 +2155,7 @@
         if (poly) map.removeLayer(poly);
         const caminho = pontos.map((p) => [p.lat, p.lng]);
         caminho.push([pontos[0].lat, pontos[0].lng]);
-        poly = L.polyline(caminho, { weight: 4 }).addTo(map);
+        poly = L.polyline(caminho, { color: "var(--navy)", weight: 4 }).addTo(map);
         map.fitBounds(poly.getBounds(), { padding: [25, 25] });
         atualizarDados();
       }
@@ -2367,6 +2265,7 @@
         if (liveMarker) liveMarker.setLatLng([lat, lng]);
         else
           liveMarker = L.circleMarker([lat, lng], {
+            color: "var(--blue)",
             radius: 7,
             weight: 3,
             fillOpacity: 0.35,
@@ -2386,7 +2285,7 @@
         document.getElementById("liveStatus").textContent = msg;
       }
       function receiveNativeLocationError(msg) {
-        finalizarOcupacao("Pronto para tentar de novo", msg);
+        finalizarOcupacao(msg, "");
       }
       let satelliteDetails = [];
       function mostrarTela(tela) {
@@ -2484,6 +2383,10 @@
       function receiveOccupationProgress(elapsed, total, samples, acc) {
         if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
         const status = document.getElementById("ocupacaoStatus");
+        if (elapsed < 0) {
+          status.textContent = "Aguardando uma leitura válida do GPS…";
+          return;
+        }
         status.textContent = `${elapsed} de ${total} s • ${samples} ${Number(samples) === 1 ? "leitura" : "leituras"}`;
       }
       function receiveOccupationResult(
@@ -3077,7 +2980,7 @@
             n = pontos[(i + 1) % pontos.length];
           rows += `<tr><td>${escapeHtml(p.nome || nomePadrao(i))}</td><td>${p.lat.toFixed(8)}</td><td>${p.lng.toFixed(8)}</td><td>${u.x}</td><td>${u.y}</td><td>${u.zona}</td><td>${dist(p, n).toFixed(2)}</td><td>${azimute(p, n).toFixed(2)}°</td></tr>`;
         });
-        let h = `<!doctype html><html><head><meta charset=utf-8><style>@page{size:A4;margin:14mm}body{font-family:Arial;color:#222}header{text-align:center;border-bottom:3px solid #f45100;padding-bottom:8px}header img{width:280px;max-height:90px;object-fit:contain}h2{font-size:18px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid #999;padding:4px;text-align:center}.sum{margin:12px 0;font-size:12px}.satpage{display:none}.sat-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.sat-system{font-weight:800}.usedyes{color:#067647;font-weight:800}.usedno{color:#667085}.sat-table{min-width:650px}@media(min-width:720px){.sat-summary{grid-template-columns:repeat(4,1fr)}}</style></head><body><header><img src="${document.getElementById("brandLogo").src}"><h2>MEMORIAL DO LEVANTAMENTO</h2></header><p><b>Levantamento:</b> ${projeto}<br><b>Responsável/Cliente:</b> ${resp}<br><b>Data:</b> ${new Date().toLocaleString("pt-BR")}</p><div class=sum><b>Área:</b> ${areaEl().textContent} m² / ${document.getElementById("ha").textContent} ha &nbsp;&nbsp; <b>Perímetro:</b> ${document.getElementById("per").textContent} m</div><table><thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>UTM E</th><th>UTM N</th><th>Zona</th><th>Dist. (m)</th><th>Azimute</th><th>Frequência</th><th>Banda</th></tr></thead><tbody>${rows}</tbody></table><p style="font-size:10px;margin-top:16px">Coordenadas geográficas e UTM calculadas pelo GPS Landmensure. Conferir a precisão e os dados antes do uso técnico oficial.</p></body></html>`;
+        let h = `<!doctype html><html><head><meta charset=utf-8><link rel="stylesheet" href="${new URL("field-theme.css", location.href).href}"><style>@page{size:A4;margin:14mm}body{font-family:Arial;background:var(--surface);color:var(--ink)}header{text-align:center;border-bottom:3px solid var(--navy);padding-bottom:8px}header img{width:280px;max-height:90px;object-fit:contain}h2{font-size:18px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid var(--line);padding:4px;text-align:center}.sum{margin:12px 0;font-size:12px}.satpage{display:none}.sat-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.sat-system{font-weight:800}.usedyes{color:var(--success);font-weight:800}.usedno{color:var(--muted)}.sat-table{min-width:650px}@media(min-width:720px){.sat-summary{grid-template-columns:repeat(4,1fr)}}</style></head><body><header><img src="${document.getElementById("brandLogo").src}"><h2>MEMORIAL DO LEVANTAMENTO</h2></header><p><b>Levantamento:</b> ${projeto}<br><b>Responsável/Cliente:</b> ${resp}<br><b>Data:</b> ${new Date().toLocaleString("pt-BR")}</p><div class=sum><b>Área:</b> ${areaEl().textContent} m² / ${document.getElementById("ha").textContent} ha &nbsp;&nbsp; <b>Perímetro:</b> ${document.getElementById("per").textContent} m</div><table><thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>UTM E</th><th>UTM N</th><th>Zona</th><th>Dist. (m)</th><th>Azimute</th><th>Frequência</th><th>Banda</th></tr></thead><tbody>${rows}</tbody></table><p style="font-size:10px;margin-top:16px">Coordenadas geográficas e UTM calculadas pelo GPS Landmensure. Conferir a precisão e os dados antes do uso técnico oficial.</p></body></html>`;
         if (window.Android && Android.printHtml)
           Android.printHtml("Memorial_GPS_Landmensure", h);
         else {

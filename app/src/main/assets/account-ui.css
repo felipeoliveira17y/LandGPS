@@ -63,7 +63,7 @@ body.account-overlay-open {
   align-items: center;
   gap: 10px;
   margin-bottom: 22px;
-  color: var(--navy);
+  color: var(--primary-ink);
   font-size: 17px;
 }
 
@@ -157,8 +157,8 @@ body.account-overlay-open {
 }
 
 .auth-main.navy {
-  background: var(--navy);
-  color: var(--surface);
+  background: var(--primary-fill);
+  color: var(--on-primary);
   box-shadow: none;
 }
 
@@ -167,7 +167,7 @@ body.account-overlay-open {
   min-height: 44px;
   padding: 6px 9px;
   background: transparent;
-  color: var(--navy);
+  color: var(--primary-ink);
   box-shadow: none;
   font-size: 14px;
 }
@@ -194,7 +194,7 @@ body.account-overlay-open {
 .account-overlay {
   z-index: 3100;
   padding: 20px 12px 0;
-  background: #0b1a2485;
+  background: var(--overlay);
 }
 
 .account-sheet {
@@ -253,14 +253,9 @@ body.account-overlay-open {
 }
 
 .account-feedback[data-tone="error"] {
-  border-color: #d99a96;
-  background: #fff1f0;
-  color: #912b25;
-}
-
-:root[data-theme="dark"] .account-feedback[data-tone="error"] {
-  background: #422827;
-  color: #ffc4bd;
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .plan-options .auth-description {

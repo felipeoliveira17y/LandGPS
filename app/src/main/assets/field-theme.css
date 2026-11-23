@@ -1,51 +1,67 @@
-/* Paleta compartilhada pelo GNSS, pela conta e pelo Memorial KML. */
-:root {
-  color-scheme: light;
-  --bg: #f5f3e9;
-  --surface: #fffef8;
-  --soft: #edf1e7;
-  --ink: #1d2c25;
-  --muted: #53645a;
-  --line: #cdd7cb;
-  --navy: #184c3c;
-  --blue: #285e50;
-  --orange: #a44227;
-  --on-primary: #fffef8;
-  --on-secondary: #fffef8;
-  --on-action: #fffef8;
-  --selection: #e2ebde;
-  --field-accent: #c28750;
-  --glow: #e1eadd;
-  --hero-start: #143e32;
-  --hero-end: #285a46;
-  --shadow: 0 5px 18px #213e2a12;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #12201b;
-  --surface: #1a2b24;
-  --soft: #23382e;
-  --ink: #edf3e9;
-  --muted: #b6c8bc;
-  --line: #3c5649;
-  --navy: #a5d7bc;
-  --blue: #92c9bb;
-  --orange: #f1ad87;
-  --on-primary: #14251d;
-  --on-secondary: #14251d;
-  --on-action: #382118;
-  --selection: #294338;
-  --field-accent: #e9ad72;
-  --glow: #21382d;
-  --hero-start: #1e4133;
-  --hero-end: #315844;
-  --shadow: 0 5px 18px #0003;
-}
-
-/* Nomes usados pelo módulo Memorial KML. */
+/* Paleta compartilhada pelo GNSS, conta, Memorial KML e Painel Técnico. */
 :root,
-:root[data-theme="dark"] {
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F6F5F0;
+  --surface: #FFFFFF;
+  --soft: #EBECE4;
+  --ink: #13201A;
+  --muted: #4E5F56;
+  --line: #CFD6CE;
+  --navy: #14533C;
+  --blue: #1D6B68;
+  --orange: #C84B24;
+  --on-primary: #FFFFFF;
+  --on-secondary: #FFFFFF;
+  --on-action: #FFFFFF;
+  --selection: #DCE8E1;
+  --field-accent: #B87A3D;
+  --danger: #B91C1C;
+  --success: #15803D;
+  --glow: #E4ECE6;
+  --hero-start: #104230;
+  --hero-end: #1E634B;
+  --shadow: 0 4px 16px rgba(19, 32, 26, 0.07);
+  --primary-ink: var(--navy);
+  --warning-ink: color-mix(in srgb, var(--orange) 82%, var(--ink));
+  --primary-fill: var(--navy);
+  --secondary-fill: var(--blue);
+  --action-fill: var(--orange);
+}
+
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0F1714;
+    --surface: #16221D;
+    --soft: #1E2E27;
+    --ink: #EDF3EF;
+    --muted: #9BB0A4;
+    --line: #2C3F36;
+    --navy: #268C66;
+    --blue: #369B97;
+    --orange: #E86A3E;
+    --on-primary: #FFFFFF;
+    --on-secondary: #FFFFFF;
+    --on-action: #FFFFFF;
+    --selection: #223A30;
+    --field-accent: #D99B58;
+    --danger: #F87171;
+    --success: #4ADE80;
+    --glow: #182922;
+    --hero-start: #143327;
+    --hero-end: #1F4D3C;
+    --shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --primary-ink: color-mix(in srgb, var(--navy) 68%, var(--on-primary));
+    --warning-ink: var(--orange);
+    --primary-fill: color-mix(in srgb, var(--navy) 76%, var(--bg));
+    --secondary-fill: color-mix(in srgb, var(--blue) 76%, var(--bg));
+    --action-fill: color-mix(in srgb, var(--orange) 76%, var(--bg));
+  }
+}
+
+/* Aliases do Memorial KML e estados semânticos. */
+:root {
   --canvas: var(--bg);
   --surface-soft: var(--soft);
   --primary: var(--navy);
@@ -53,6 +69,11 @@
   --accent: var(--selection);
   --field: var(--surface);
   --field-border: var(--line);
+  --overlay: color-mix(in srgb, var(--hero-start) 72%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  --danger-line: color-mix(in srgb, var(--danger) 35%, var(--line));
+  --warning-soft: color-mix(in srgb, var(--orange) 12%, var(--surface));
+  --warning-line: color-mix(in srgb, var(--orange) 35%, var(--line));
 }
 
 body,
@@ -72,17 +93,17 @@ body,
 .auth-gate-card { border-top: 3px solid var(--field-accent); }
 
 #mainPage button.navy, #satPage button.navy, #settingsModal button.navy, .auth-main.navy {
-  background: var(--navy);
+  background: var(--primary-fill);
   color: var(--on-primary);
 }
 
 #mainPage button.blue, #satPage button.blue {
-  background: var(--blue);
+  background: var(--secondary-fill);
   color: var(--on-secondary);
 }
 
 #btnColetar, #mainPage .action-buttons button:not([class]) {
-  background: var(--orange);
+  background: var(--action-fill);
   color: var(--on-action);
 }
 
@@ -90,7 +111,7 @@ body,
 
 :root .liveok, :root[data-theme="dark"] .liveok {
   background: var(--selection);
-  color: var(--navy);
+  color: var(--primary-ink);
 }
 
 :root[data-theme="dark"] .hint { color: var(--muted); }
@@ -104,8 +125,8 @@ body,
 }
 
 .btn-file-upload, :root[data-theme="dark"] .btn-file-upload {
-  background: var(--orange);
-  border-color: var(--orange);
+  background: var(--action-fill);
+  border-color: var(--action-fill);
   color: var(--on-action);
 }
 
@@ -116,3 +137,23 @@ button:focus-visible, select:focus-visible, summary:focus-visible {
   outline: 2px solid var(--navy);
   outline-offset: 3px;
 }
+
+/* A folha do Leaflet tem estilos próprios para cada estado dos controles. */
+[data-theme="dark"] .leaflet-container { background: var(--soft); }
+
+[data-theme="dark"] .leaflet-container .leaflet-bar {
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .leaflet-container .leaflet-bar a,
+[data-theme="dark"] .leaflet-container .leaflet-control-attribution {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .leaflet-container .leaflet-bar a:is(:hover, :focus-visible) { background: var(--selection); }
+[data-theme="dark"] .leaflet-container .leaflet-bar a.leaflet-disabled { background: var(--soft); color: var(--muted); }
+[data-theme="dark"] .leaflet-container .leaflet-control-attribution a { color: var(--ink); text-decoration: underline; }

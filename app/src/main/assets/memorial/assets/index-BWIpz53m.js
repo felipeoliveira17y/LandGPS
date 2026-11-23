@@ -685,15 +685,15 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
 <style>
         @page { size: A4 portrait; margin: 8mm; }
         html, body { margin: 0; padding: 0; }
-        body { width: 194mm; font-family: 'Times New Roman', Times, serif; font-size: 9pt; line-height: 1.22; color: #000; }
+        body { width: 194mm; font-family: 'Times New Roman', Times, serif; font-size: 9pt; line-height: 1.22; color: #13201A; }
         #printPage { width: 194mm; }
         .memorial-document { display: flex; flex-direction: column; }
         .memorial-header-info { margin-bottom: 5px; font-weight: bold; }
-        .memorial-section h3 { font-size: 10pt; margin: 7px 0 3px; border-bottom: 1px solid #999; }
+        .memorial-section h3 { font-size: 10pt; margin: 7px 0 3px; border-bottom: 1px solid #CFD6CE; }
         .title-center { text-align: center; }
         .title-center h3 { border: 0; font-size: 11pt; margin-top: 10px; text-transform: uppercase; }
-        .memorial-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; border-top: 0.5pt solid #444; border-left: 0.5pt solid #444; margin: 3px 0 6px; font-size: 8pt; break-inside: avoid; }
-        .memorial-table th, .memorial-table td { border-right: 0.5pt solid #444; border-bottom: 0.5pt solid #444; padding: 2px 3px; text-align: center; white-space: nowrap; }
+        .memorial-table { width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0; border-top: 0.5pt solid #4E5F56; border-left: 0.5pt solid #4E5F56; margin: 3px 0 6px; font-size: 8pt; break-inside: avoid; }
+        .memorial-table th, .memorial-table td { border-right: 0.5pt solid #4E5F56; border-bottom: 0.5pt solid #4E5F56; padding: 2px 3px; text-align: center; white-space: nowrap; }
         .prop-info-block { margin: 6px 0; line-height: 1.25; }
         .memorial-body-text { text-align: justify; margin: 6px 0; text-indent: 15px; }
         .memorial-footer-note { font-size: 8pt; margin: 6px 0; text-align: justify; }
@@ -758,7 +758,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        background: #fff;
+                        background: #FFFFFF;
                     }
                     .toolbar {
                         width: 100%;
@@ -776,7 +776,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                         align-items: center;
                     }
                     h2 {
-                        color: #0056b3;
+                        color: #14533C;
                         margin: 0 0 5px 0;
                         font-size: 15pt;
                         text-align: center;
@@ -784,19 +784,19 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                     p {
                         margin: 0 0 8mm 0;
                         font-size: 10pt;
-                        color: #555;
+                        color: #4E5F56;
                         text-align: center;
                     }
                     #mapaImpressao {
                         width: 100%;
                         height: 130mm;
-                        border: 1px solid #ccc;
+                        border: 1px solid #CFD6CE;
                         border-radius: 4px;
                     }
                     .vertice-label {
                         background: rgba(255, 255, 255, 0.95);
-                        border: 1px solid #ff0000;
-                        color: #d32f2f;
+                        border: 1px solid #B91C1C;
+                        color: #B91C1C;
                         font-weight: bold;
                         font-size: 9px;
                         padding: 2px 4px;
@@ -806,7 +806,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                     }
                     .btn-print-action {
                         padding: 10px 18px;
-                        background: #0056b3;
+                        background: #14533C;
                         color: white;
                         border: none;
                         border-radius: 4px;
@@ -820,13 +820,13 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                         width: 100px;
                         align-items: center;
                         justify-content: center;
-                        background-color: #eeeeee4b;
+                        background-color: #EBECE44B;
                         border-radius: 3px;
                         letter-spacing: 1px;
                         transition: all 0.2s linear;
                         cursor: pointer;
-                        border: 1px solid #ccc;
-                        background: #fff;
+                        border: 1px solid #CFD6CE;
+                        background: #FFFFFF;
                     }
                     .btn-back > svg {
                         margin-right: 5px;
@@ -839,7 +839,7 @@ svg.leaflet-image-layer.leaflet-interactive path {\r
                         transform: translateX(-5px);
                     }
                     .btn-back:hover {
-                        box-shadow: 9px 9px 33px #d1d1d1, -9px -9px 33px #ffffff;
+                        box-shadow: 9px 9px 33px #CFD6CE, -9px -9px 33px #FFFFFF;
                         transform: translateY(-2px);
                     }
                     @media print {

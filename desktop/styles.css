@@ -9,7 +9,7 @@ button {
 }
 button:hover:not(:disabled) { border-color: var(--navy); }
 button:disabled { cursor: default; opacity: .55; }
-.primary { background: var(--navy); color: var(--on-primary); border-color: transparent; }
+.primary { background: var(--primary-fill); color: var(--on-primary); border-color: transparent; }
 .top {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 14px clamp(16px, 4vw, 56px); border-bottom: 1px solid var(--line); background: var(--surface);
@@ -18,7 +18,7 @@ button:disabled { cursor: default; opacity: .55; }
 .brand small { display: block; color: var(--muted); }
 .mark {
   display: grid; place-items: center; width: 44px; height: 44px;
-  background: var(--navy); color: var(--on-primary); border-radius: 11px; font-size: 22px; font-weight: 750;
+  background: var(--primary-fill); color: var(--on-primary); border-radius: 11px; font-size: 22px; font-weight: 750;
 }
 .workspace {
   max-width: 1440px; margin: 0 auto; padding: clamp(16px, 4vw, 44px);
@@ -57,10 +57,10 @@ button:disabled { cursor: default; opacity: .55; }
 .sheet-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .survey-sheet .muted { margin-top: 4px; }
 .quality-summary { margin-top: 12px; color: var(--muted); }
-.quality-alert td:last-child { color: var(--orange); font-weight: 650; }
+.quality-alert td:last-child { color: var(--warning-ink); font-weight: 650; }
 .survey-head { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: end; gap: 14px; }
 .survey-head h1 { font-size: clamp(27px, 4vw, 44px); line-height: 1.12; overflow-wrap: anywhere; }
-.eyebrow { color: var(--navy); font-size: 12px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
+.eyebrow { color: var(--primary-ink); font-size: 12px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 6px; }
 .survey-head .muted { margin-top: 6px; }
 #action-status:not(:empty) { margin-top: 8px; }
 .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; margin: 18px 0; }
@@ -74,11 +74,11 @@ dd { margin: 0; font-variant-numeric: tabular-nums; font-size: clamp(14px, 2.4vw
 .plot-panel { border-top: 3px solid var(--field-accent); }
 #plot {
   display: block; width: 100%; max-height: 380px; margin-top: 12px;
-  background-color: var(--soft); color: var(--navy); border-radius: 9px;
+  background-color: var(--soft); color: var(--primary-ink); border-radius: 9px;
   background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
   background-size: 28px 28px;
 }
-#plot .shape { stroke: currentColor; stroke-width: 2.4; vector-effect: non-scaling-stroke; }
+#plot .shape { stroke: var(--navy); stroke-width: 2.4; vector-effect: non-scaling-stroke; }
 #plot .area { fill: currentColor; fill-opacity: .13; }
 #plot .line { fill: none; }
 #plot .vertex { fill: var(--orange); stroke: var(--surface); stroke-width: 1.5; }
@@ -98,7 +98,14 @@ dd { margin: 0; font-variant-numeric: tabular-nums; font-size: clamp(14px, 2.4vw
 .vertex-button { min-height: 36px; padding: 3px 10px; }
 .memorial p { margin-top: 10px; line-height: 1.65; overflow-wrap: anywhere; }
 @media screen { .plot-hidden-on-screen { display: none !important; } }
-#plot .point-label { fill: var(--ink); font-size: 14px; }
+#plot .point-label {
+  fill: var(--ink);
+  stroke: var(--soft);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  font-size: 14px;
+}
 .table-wrap { overflow: auto; margin-top: 10px; }
 table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); }
@@ -107,7 +114,7 @@ dialog {
   width: min(440px, calc(100% - 28px)); border: 1px solid var(--line); border-radius: 14px;
   padding: 20px; color: var(--ink); background: var(--surface);
 }
-dialog::backdrop { background: #10231db3; }
+dialog::backdrop { background: var(--overlay); }
 .dialog-mark { display: block; object-fit: contain; }
 #recovery-dialog .dialog-mark { margin-bottom: 11px; }
 .export-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 15px 0; }
@@ -138,10 +145,10 @@ dialog::backdrop { background: #10231db3; }
   .metrics { gap: 12px; margin: 24px 0 16px; }
   .metrics > div { padding: clamp(11px, 2vw, 19px); border-radius: 16px; }
   .metrics dt { margin-bottom: 5px; }
-  .metric-area dd { color: var(--orange); }
+  .metric-area dd { color: var(--warning-ink); }
   .panel, .empty { border-radius: 20px; padding: clamp(14px, 2.2vw, 24px); }
   .plot-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .orientation { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; color: var(--navy); font-weight: 750; }
+  .orientation { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; color: var(--primary-ink); font-weight: 750; }
   #plot { margin-top: 16px; border: 1px solid var(--line); border-radius: 12px; }
   .table-wrap { border: 1px solid var(--line); border-radius: 12px; }
   th, td { padding: 11px 12px; white-space: nowrap; }
@@ -174,11 +181,11 @@ dialog::backdrop { background: #10231db3; }
   overflow: hidden;
   min-height: 260px;
   aspect-ratio: 1.55;
-  border: 1px solid #436b5b;
+  border: 1px solid var(--blue);
   border-radius: 22px;
   background:
-    repeating-linear-gradient(0deg, #aacdb621 0 1px, transparent 1px 28px),
-    repeating-linear-gradient(90deg, #aacdb621 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--on-primary) 14%, transparent) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--on-primary) 14%, transparent) 0 1px, transparent 1px 28px),
     linear-gradient(135deg, var(--hero-start), var(--hero-end));
 }
 .survey-art::before {
@@ -186,12 +193,12 @@ dialog::backdrop { background: #10231db3; }
   position: absolute;
   inset: -48% -22%;
   transform: rotate(-27deg);
-  background: repeating-radial-gradient(ellipse at 76% 61%, transparent 0 14px, #adc8aa3b 15px 16px, transparent 17px 29px);
+  background: repeating-radial-gradient(ellipse at 76% 61%, transparent 0 14px, color-mix(in srgb, var(--on-primary) 25%, transparent) 15px 16px, transparent 17px 29px);
 }
 .survey-art-parcel {
   position: absolute;
   inset: 18% 18% 17% 18%;
-  background: #efb273;
+  background: var(--field-accent);
   clip-path: polygon(6% 71%, 20% 24%, 67% 7%, 94% 40%, 78% 83%, 36% 94%);
 }
 .survey-art-parcel::after {
@@ -199,8 +206,8 @@ dialog::backdrop { background: #10231db3; }
   position: absolute;
   inset: 4px;
   background:
-    repeating-linear-gradient(127deg, #b7ddc05c 0 1px, transparent 1px 8px),
-    #275746;
+    repeating-linear-gradient(127deg, color-mix(in srgb, var(--on-primary) 36%, transparent) 0 1px, transparent 1px 8px),
+    var(--hero-end);
   clip-path: inherit;
 }
 .welcome-actions {
@@ -223,7 +230,7 @@ dialog::backdrop { background: #10231db3; }
 .welcome-actions button { margin-top: 12px; padding-inline: 15px; }
 .welcome-actions button span { margin-inline-start: 10px; }
 .welcome-footer { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; margin-top: 12px; }
-.text-action { background: transparent; border-color: transparent; color: var(--navy); }
+.text-action { background: transparent; border-color: transparent; color: var(--primary-ink); }
 .text-action span { margin-inline-start: 6px; }
 @media (max-width: 780px) { .workspace { grid-template-columns: minmax(0, 1fr); } }
 @media screen and (max-width: 680px) {
@@ -243,14 +250,13 @@ dialog::backdrop { background: #10231db3; }
   .export-options { grid-template-columns: 1fr; }
 }
 @media print {
-  :root, :root[data-theme="dark"] { --ink: #1d2c25; --muted: #45574d; --navy: #184c3c; --orange: #a44227; --line: #cdd7cb; --soft: #fff; --surface: #fff; }
-  body, html { background: white !important; color: black !important; }
+  body, html { background: var(--surface) !important; color: var(--ink) !important; }
   .top, .library, .toolbar, #action-status, #survey-map, #map-status, dialog { display: none !important; }
   #survey:not([hidden]) > .review-panel[hidden]:not(#panel-history) { display: block !important; }
   #panel-history, .survey-sheet { display: none !important; }
   .vertex-button { min-height: 0; padding: 0; border: 0; background: transparent !important; color: inherit; }
   .workspace { display: block; padding: 0; }
-  .panel, .metrics > div { background: white; color: black; }
+  .panel, .metrics > div { background: var(--surface); color: var(--ink); }
   .plot-panel { break-inside: avoid; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }

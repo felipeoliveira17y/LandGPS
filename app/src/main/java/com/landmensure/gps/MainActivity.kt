@@ -49,6 +49,7 @@ import org.json.JSONObject
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private lateinit var assetLoader: WebViewAssetLoader
     private lateinit var appRoot: LinearLayout
     private lateinit var statusBarSpace: View
     private lateinit var navigationBarSpace: View
@@ -65,7 +66,8 @@ class MainActivity : Activity() {
     private var occupationActive = false
     private var occupationChecking = false
     private var occupationGeneration = 0L
-    private var occupationStart = 0L
+    private var occupationRequestedAt = 0L
+    private var occupationStart: Long? = null
     private var occupationSeconds = 0
     private var occupationAdjusted = false
     private val occupationSamples = mutableListOf<Location>()
@@ -158,8 +160,14 @@ class MainActivity : Activity() {
             latestFix = Location(location)
             deliverLiveLocation(location)
             if (occupationActive) {
-                val age = System.currentTimeMillis() - location.time
-                if (age in 0..2500 && location.accuracy <= 50f) occupationSamples.add(Location(location))
+                val now = SystemClock.elapsedRealtime()
+                val fixTime = location.elapsedRealtimeNanos / 1_000_000L
+                if (fixTime >= occupationRequestedAt && now - fixTime in 0..2500 &&
+                    location.accuracy in 0f..50f
+                ) {
+                    if (occupationStart == null) occupationStart = now
+                    occupationSamples.add(Location(location))
+                }
             }
         }
         override fun onProviderEnabled(provider: String) {}
@@ -178,7 +186,7 @@ class MainActivity : Activity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         webView = WebView(this)
-        val fieldBackground = Color.rgb(245, 243, 233)
+        val fieldBackground = getColor(R.color.field_background_light)
         webView.setBackgroundColor(fieldBackground)
         statusBarSpace = View(this)
         navigationBarSpace = View(this)
@@ -214,7 +222,7 @@ class MainActivity : Activity() {
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = false
         webView.settings.allowFileAccessFromFileURLs = false
-        val assetLoader = WebViewAssetLoader.Builder()
+        assetLoader = WebViewAssetLoader.Builder()
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
             .build()
         webView.webViewClient = object : WebViewClient() {
@@ -365,7 +373,7 @@ class MainActivity : Activity() {
         }}
 
         @JavascriptInterface fun setDarkBars(dark: Boolean) { runOnUiThread {
-            val color = if (dark) Color.rgb(18, 32, 27) else Color.rgb(245, 243, 233)
+            val color = getColor(if (dark) R.color.field_background_dark else R.color.field_background_light)
             webView.setBackgroundColor(color)
             appRoot.setBackgroundColor(color)
             statusBarSpace.setBackgroundColor(color)
@@ -489,7 +497,15 @@ class MainActivity : Activity() {
     private fun printMemorial(jobName: String, html: String) {
         val printView = WebView(this)
         printView.settings.javaScriptEnabled = false
+        printView.settings.allowFileAccess = false
+        printView.settings.allowContentAccess = false
         printView.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView?,
+                request: android.webkit.WebResourceRequest?,
+            ) = request?.url?.let(assetLoader::shouldInterceptRequest)
+                ?: super.shouldInterceptRequest(view, request)
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 val pm = getSystemService(Context.PRINT_SERVICE) as PrintManager
                 pm.print(jobName, printView.createPrintDocumentAdapter(jobName), PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
@@ -533,8 +549,9 @@ class MainActivity : Activity() {
         occupationSamples.clear()
         occupationSeconds = seconds
         occupationAdjusted = adjusted
-        occupationStart = SystemClock.elapsedRealtime()
-        sendOccupationProgress(0, seconds, 0, latestFix?.accuracy?.toDouble() ?: -1.0)
+        occupationRequestedAt = SystemClock.elapsedRealtime()
+        occupationStart = null
+        sendOccupationProgress(-1, seconds, 0, latestFix?.accuracy?.toDouble() ?: -1.0)
         scheduleOccupationTick(++occupationGeneration)
     }
 
@@ -577,7 +594,15 @@ class MainActivity : Activity() {
                 stopLiveTracking()
                 return@postDelayed
             }
-            val elapsed = ((SystemClock.elapsedRealtime() - occupationStart) / 1000L).toInt()
+            val now = SystemClock.elapsedRealtime()
+            val startedAt = occupationStart
+            if (startedAt == null) {
+                if (now - occupationRequestedAt >= 30_000L) {
+                    cancelOccupation("Sem leitura GNSS com precisão de até 50 m em 30 s. Vá para um local aberto e tente novamente.")
+                } else scheduleOccupationTick(generation)
+                return@postDelayed
+            }
+            val elapsed = ((now - startedAt) / 1000L).toInt()
             sendOccupationProgress(elapsed.coerceAtMost(occupationSeconds), occupationSeconds, occupationSamples.size, latestFix?.accuracy?.toDouble() ?: -1.0)
             if (elapsed >= occupationSeconds) finishOccupation() else scheduleOccupationTick(generation)
         }, 500L)
@@ -594,7 +619,10 @@ class MainActivity : Activity() {
 
     private fun finishOccupation() {
         occupationActive = false
-        if (occupationSamples.size < 3) { sendLocationError("Poucas leituras GNSS válidas durante a ocupação. Tente novamente em área aberta."); return }
+        if (occupationSamples.size < 3) {
+            sendLocationError("A coleta teve ${occupationSamples.size} de 3 leituras GNSS válidas necessárias. Tente novamente em área aberta.")
+            return
+        }
         val samples = occupationSamples.toList()
         val medLat = samples.map { it.latitude }.sorted()[samples.size/2]
         val medLon = samples.map { it.longitude }.sorted()[samples.size/2]

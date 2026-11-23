@@ -110,7 +110,7 @@ function selectVertex(index, pan = false) {
     const selected = vertex === index;
     $("vertices").rows[vertex]?.firstElementChild.firstElementChild.setAttribute("aria-pressed", String(selected));
     $("plot").querySelector(`[data-vertex="${vertex}"]`)?.classList.toggle("vertex-selected", selected);
-    mapMarkers[vertex]?.setStyle({ color: selected ? "#a44227" : "#184c3c", weight: selected ? 4 : 2 });
+    mapMarkers[vertex]?.setStyle({ color: selected ? "var(--orange)" : "var(--navy)", weight: selected ? 4 : 2 });
   }
   if (pan && mapMode !== "schematic" && mapMarkers[index]) {
     surveyMap.panTo(mapMarkers[index].getLatLng());
@@ -152,10 +152,10 @@ function renderMap() {
   mapMarkers = positions.map((position, index) => {
     const label = document.createElement("span");
     label.textContent = survey.pontos[index].nome;
-    return L.circleMarker(position, { radius: 5, color: "#184c3c", fillColor: "#fffef8", fillOpacity: 1 })
+    return L.circleMarker(position, { radius: 5, color: "var(--navy)", fillColor: "var(--surface)", fillOpacity: 1 })
       .bindTooltip(label).on("click", () => selectVertex(index));
   });
-  surveyLayer = L.featureGroup([shape(positions, { color: "#184c3c" }), ...mapMarkers]).addTo(surveyMap);
+  surveyLayer = L.featureGroup([shape(positions, { color: "var(--navy)" }), ...mapMarkers]).addTo(surveyMap);
   surveyMap.invalidateSize({ pan: false });
   fitSurveyMap();
   if (activeVertex >= 0) selectVertex(activeVertex);
@@ -788,10 +788,33 @@ $("print").addEventListener("click", async () => {
     $("print").disabled = false;
   }
 });
-$("theme").addEventListener("click", () => {
-  const dark = document.documentElement.dataset.theme !== "dark";
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
+const themeKey = "landmensure_desktop_theme";
+const systemTheme = matchMedia("(prefers-color-scheme: dark)");
+let themePreference;
+try {
+  const saved = localStorage.getItem(themeKey);
+  if (saved === "dark" || saved === "light") themePreference = saved;
+} catch {
+  // Browser storage can be unavailable in restricted sessions.
+}
+
+function applyTheme() {
+  const theme = themePreference ?? (systemTheme.matches ? "dark" : "light");
+  const dark = theme === "dark";
+  document.documentElement.dataset.theme = theme;
   $("theme").setAttribute("aria-pressed", String(dark));
   $("theme").textContent = dark ? "Modo claro" : "Modo escuro";
+}
+
+$("theme").addEventListener("click", () => {
+  themePreference = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  try {
+    localStorage.setItem(themeKey, themePreference);
+  } catch {
+    // The selection remains available for the current page.
+  }
+  applyTheme();
 });
+systemTheme.addEventListener("change", applyTheme);
+applyTheme();
 render();

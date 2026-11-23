@@ -1,0 +1,5 @@
+<resources>
+    <color name="field_background_light">#F6F5F0</color>
+    <color name="field_background_dark">#0F1714</color>
+    <color name="field_accent">#14533C</color>
+</resources>
