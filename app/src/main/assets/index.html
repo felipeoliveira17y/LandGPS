@@ -1164,8 +1164,7 @@
       #memorialFrame {
         display: block;
         width: 100%;
-        height: calc(100dvh - 158px);
-        min-height: 480px;
+        height: 480px;
         border: 0;
         background: var(--surface);
       }
@@ -1187,10 +1186,6 @@
         }
         .app-tab {
           padding: 8px 10px;
-        }
-        #memorialFrame {
-          height: calc(100dvh - 148px);
-          min-height: 420px;
         }
       }
     </style>
@@ -1340,6 +1335,10 @@
           <button type="button" id="savedMemorialOpen" class="navy" onclick="abrirMemorialSalvo()" disabled>Abrir no memorial</button>
         </div>
         <p class="hint" id="savedMemorialStatus" role="status"></p>
+        <details id="savedMemorialAltitude" hidden>
+          <summary>Altitude dos vértices (WGS84)</summary>
+          <ul></ul>
+        </details>
       </section>
       <iframe
         id="memorialFrame"
@@ -1402,11 +1401,11 @@
               <b>Modo de coleta</b>
               <select id="tempoColeta">
                 <option value="0">Instantâneo</option>
-                <option value="15">Média de 15 s</option>
-                <option value="30" selected>Média de 30 s</option>
-                <option value="60">Média de 60 s</option>
-                <option value="120">Média de 120 s</option>
-                <option value="121">Ponto ajustado • 120 s</option>
+                <option value="15" selected>Média de 15 s</option>
+                <option value="30" data-pro hidden disabled>Média de 30 s</option>
+                <option value="60" data-pro hidden disabled>Média de 60 s</option>
+                <option value="120" data-pro hidden disabled>Média de 120 s</option>
+                <option value="121" data-pro hidden disabled>Ponto ajustado • 120 s</option>
               </select>
             </label>
             <div class="liveitem">
@@ -1449,6 +1448,7 @@
             <div class="liveitem">
               <b>Longitude decimal</b><span id="liveLng">--</span>
             </div>
+            <div class="liveitem"><b>Altitude GNSS (WGS84)</b><span id="liveAltitude">—</span></div>
             <div class="liveitem">
               <b>Acurácia estimada</b><span id="liveAcc">--</span>
             </div>
@@ -1692,6 +1692,7 @@
                 <th>Vértice</th>
                 <th>Latitude</th>
                 <th>Longitude</th>
+                <th>Altitude WGS84 (m)</th>
                 <th>UTM X</th>
                 <th>UTM Y</th>
                 <th>Zona</th>
@@ -1866,10 +1867,10 @@
           ><select id="settingCapture">
             <option value="0">Instantâneo</option>
             <option value="15">Média de 15 s</option>
-            <option value="30">Média de 30 s</option>
-            <option value="60">Média de 60 s</option>
-            <option value="120">Média de 120 s</option>
-            <option value="121">Ponto ajustado • 120 s</option>
+            <option value="30" data-pro hidden disabled>Média de 30 s</option>
+            <option value="60" data-pro hidden disabled>Média de 60 s</option>
+            <option value="120" data-pro hidden disabled>Média de 120 s</option>
+            <option value="121" data-pro hidden disabled>Ponto ajustado • 120 s</option>
           </select></label
         ><label class="settings-field" for="settingMap"
           ><span><b>Mapa inicial</b><small>Camada exibida ao abrir</small></span
@@ -1910,10 +1911,13 @@
           return {};
         }
       }
+      function ajustarModoColeta(selector, valor) {
+        const modo = String(valor ?? (temPro() ? "30" : "15"));
+        selector.value = [...selector.options].some(option => option.value === modo && !option.disabled)
+          ? modo : "15";
+      }
       function aplicarDefinicoes(d = lerDefinicoes()) {
-        const modo = String(d.coleta ?? "30");
-        const el = document.getElementById("tempoColeta");
-        if ([...el.options].some((o) => o.value === modo)) el.value = modo;
+        ajustarModoColeta(document.getElementById("tempoColeta"), d.coleta);
         const tema = d.tema === "dark" ? "dark" : "light";
         document.documentElement.dataset.theme = tema;
         if (window.Android && typeof Android.setDarkBars === "function")
@@ -1945,7 +1949,7 @@
       function abrirDefinicoes() {
         const d = lerDefinicoes(),
           modal = document.getElementById("settingsModal");
-        document.getElementById("settingCapture").value = d.coleta || "30";
+        ajustarModoColeta(document.getElementById("settingCapture"), d.coleta);
         document.getElementById("settingMap").value = temPro() ? d.mapa || "osm" : "osm";
         document.getElementById("settingTheme").value =
           d.tema === "dark" ? "dark" : "light";
@@ -1971,6 +1975,23 @@
             },
             "*",
           );
+      }
+      let memorialResizeObserver;
+      function observarAlturaMemorial() {
+        const frame = document.getElementById("memorialFrame");
+        memorialResizeObserver?.disconnect();
+        const body = frame.contentDocument?.body;
+        if (!body || frame.contentDocument.URL === "about:blank") return;
+        function ajustarAltura() {
+          if (frame.contentDocument?.body !== body) return;
+          const height = Math.ceil(body.getBoundingClientRect().height);
+          if (height <= 0) return;
+          const size = `${height + 24}px`;
+          if (frame.style.height !== size) frame.style.height = size;
+        }
+        memorialResizeObserver = new ResizeObserver(() => requestAnimationFrame(ajustarAltura));
+        memorialResizeObserver.observe(body);
+        ajustarAltura();
       }
       function inicializarDefinicoes() {
         aplicarDefinicoes();
@@ -2030,11 +2051,11 @@
       }
       function limiteColeta() {
         if (temPro()) return "";
-        if (pontos.length >= 10) return "O plano gratuito permite até 10 pontos por projeto.";
+        if (pontos.length >= 12) return "O plano gratuito permite até 12 pontos por projeto.";
         const salvos = lerLevantamentos();
         const nome = limparTexto(document.getElementById("projeto").value, 120);
-        if (Object.keys(salvos).length >= 2 && !Object.hasOwn(salvos, nome)) {
-          return "O plano gratuito permite até 2 projetos. Abra um levantamento salvo para continuar.";
+        if (Object.keys(salvos).length >= 1 && !Object.hasOwn(salvos, nome)) {
+          return "O plano gratuito permite até 1 projeto. Abra um levantamento salvo para continuar.";
         }
         return "";
       }
@@ -2198,7 +2219,7 @@
             next = pontos.length > 1 ? pontos[(i + 1) % pontos.length] : null,
             d = next ? dist(p, next).toFixed(2) : "-",
             az = next ? azimute(p, next).toFixed(2) + "°" : "-";
-          tb.innerHTML += `<tr><td><b>${escapeHtml(p.nome || nomePadrao(i))}</b></td><td>${p.lat.toFixed(8)}</td><td>${p.lng.toFixed(8)}</td><td>${u.x}</td><td>${u.y}</td><td>${u.zona}</td><td>${d}</td><td>${az}</td><td><button class="mini" onclick="renomear(${i})">Editar</button></td></tr>`;
+          tb.innerHTML += `<tr><td><b>${escapeHtml(p.nome || nomePadrao(i))}</b></td><td>${p.lat.toFixed(8)}</td><td>${p.lng.toFixed(8)}</td><td>${textoAltitude(p)}</td><td>${u.x}</td><td>${u.y}</td><td>${u.zona}</td><td>${d}</td><td>${az}</td><td><button class="mini" onclick="renomear(${i})">Editar</button></td></tr>`;
         });
         let per = 0;
         for (let i = 0; i < pontos.length - 1; i++)
@@ -2212,7 +2233,7 @@
         pontos.forEach((p, i) => {
           let u = converterUTM(p.lat, p.lng),
             next = pontos.length > 1 ? pontos[(i + 1) % pontos.length] : null;
-          mem += `<b>${escapeHtml(p.nome || nomePadrao(i))}</b> — Lat. ${p.lat.toFixed(8)}, Long. ${p.lng.toFixed(8)} — UTM E ${u.x} / N ${u.y} (${u.zona})`;
+          mem += `<b>${escapeHtml(p.nome || nomePadrao(i))}</b> — Lat. ${p.lat.toFixed(8)}, Long. ${p.lng.toFixed(8)} — Alt. WGS84: ${textoAltitude(p)} — UTM E ${u.x} / N ${u.y} (${u.zona})`;
           if (next)
             mem += ` — até ${escapeHtml(next.nome || nomePadrao((i + 1) % pontos.length))}: ${dist(p, next).toFixed(2)} m, azimute ${azimute(p, next).toFixed(2)}°`;
           mem += "<br>";
@@ -2228,7 +2249,16 @@
       }
       let liveFix = null,
         liveMarker = null;
-      function adicionarPontoGPS(lat, lng, acc, qualidade = null) {
+      function dadosAltitude(altitude, verticalAccuracy) {
+        if (!Number.isFinite(altitude)) return {};
+        return { altitude, ...(Number.isFinite(verticalAccuracy) && verticalAccuracy >= 0 ? { verticalAccuracy } : {}) };
+      }
+      function textoAltitude(p) {
+        if (!Number.isFinite(p.altitude)) return "—";
+        return p.altitude.toFixed(1) + (Number.isFinite(p.verticalAccuracy) && p.verticalAccuracy >= 0
+          ? " ± " + p.verticalAccuracy.toFixed(1) : "");
+      }
+      function adicionarPontoGPS(lat, lng, acc, qualidade = null, altitude, verticalAccuracy) {
         lat = Number(lat);
         lng = Number(lng);
         if (
@@ -2247,6 +2277,7 @@
           lng: lng,
           nome: nomePadrao(pontos.length),
           accuracy: Number(acc),
+          ...dadosAltitude(altitude, verticalAccuracy),
           qualidade: qualidade,
         });
         normalizarNomes();
@@ -2259,7 +2290,7 @@
         atualizarDados();
         return true;
       }
-      function receiveLiveLocation(lat, lng, acc, time) {
+      function receiveLiveLocation(lat, lng, acc, time, altitude, verticalAccuracy) {
         if (!surveyOwner) return;
         lat = Number(lat);
         lng = Number(lng);
@@ -2268,7 +2299,8 @@
           map.setView([lat, lng], 16);
           gpsMapCentered = true;
         }
-        liveFix = { lat, lng, acc, time: Number(time) };
+        liveFix = { lat, lng, acc, time: Number(time), ...dadosAltitude(altitude, verticalAccuracy) };
+        document.getElementById("liveAltitude").textContent = Number.isFinite(liveFix.altitude) ? textoAltitude(liveFix) + " m" : "—";
         let u = converterUTM(lat, lng);
         document.getElementById("liveLat").textContent = lat.toFixed(8);
         document.getElementById("liveLng").textContent = lng.toFixed(8);
@@ -2292,11 +2324,11 @@
             .addTo(map)
             .bindTooltip("Posição atual");
       }
-      function receiveCapturedLocation(lat, lng, acc, time) {
+      function receiveCapturedLocation(lat, lng, acc, time, altitude, verticalAccuracy) {
         if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
         const limite = limiteColeta();
         if (limite) return receiveNativeLocationError(limite);
-        if (!adicionarPontoGPS(lat, lng, acc)) {
+        if (!adicionarPontoGPS(lat, lng, acc, null, altitude, verticalAccuracy)) {
           receiveNativeLocationError("O GPS enviou uma posição inválida. Tente coletar o ponto novamente.");
           return;
         }
@@ -2427,6 +2459,8 @@
         r95,
         hdop,
         pdop,
+        altitude,
+        verticalAccuracy,
       ) {
         if (!surveyOwner || !document.getElementById("btnColetar").disabled) return;
         const limite = limiteColeta();
@@ -2439,7 +2473,7 @@
           r95: Number(r95),
           hdop: Number(hdop),
           pdop: Number(pdop),
-        });
+        }, altitude, verticalAccuracy);
         if (!saved) {
           receiveNativeLocationError("O GPS enviou uma posição inválida. Tente coletar o ponto novamente.");
           return;
@@ -2474,6 +2508,7 @@
         let segundos = Number(
           document.getElementById("tempoColeta").value || 0,
         );
+        if (segundos > 15 && !exigirPro()) return;
         const pontoAjustado = segundos === 121;
         if (pontoAjustado) segundos = 120;
         let btn = document.getElementById("btnColetar");
@@ -2495,7 +2530,7 @@
         if (segundos > 0)
           return receiveNativeLocationError("Abra o app no Android para coletar por tempo.");
         if (liveFix && Date.now() - liveFix.time < 3000) {
-          receiveCapturedLocation(liveFix.lat, liveFix.lng, liveFix.acc);
+          receiveCapturedLocation(liveFix.lat, liveFix.lng, liveFix.acc, liveFix.time, liveFix.altitude, liveFix.verticalAccuracy);
           return;
         }
         if (!navigator.geolocation)
@@ -2507,11 +2542,16 @@
               pos.coords.longitude,
               pos.coords.accuracy,
               pos.timestamp,
+              pos.coords.altitude,
+              pos.coords.altitudeAccuracy,
             );
             receiveCapturedLocation(
               pos.coords.latitude,
               pos.coords.longitude,
               pos.coords.accuracy,
+              pos.timestamp,
+              pos.coords.altitude,
+              pos.coords.altitudeAccuracy,
             );
           },
           (e) => receiveNativeLocationError(e.code === 1
@@ -2676,6 +2716,7 @@
         if (document.visibilityState === "visible") sincronizarLevantamentos();
       });
       function atualizarProjetosMemorial() {
+        document.getElementById("savedMemorialAltitude").hidden = true;
         const select = document.getElementById("savedMemorialProject");
         const anterior = select.value;
         const projetos = Object.entries(lerLevantamentos() || {});
@@ -2695,6 +2736,7 @@
       document.getElementById("savedMemorialProject").addEventListener("change", (event) => {
         document.getElementById("savedMemorialOpen").disabled = !event.target.value;
         document.getElementById("savedMemorialStatus").textContent = "";
+        document.getElementById("savedMemorialAltitude").hidden = true;
       });
       async function abrirMemorialSalvo() {
         if (!exigirPro()) return;
@@ -2705,6 +2747,8 @@
         if (select.disabled || !chave || !Object.hasOwn(projetos, chave)) return;
         const projeto = projetos[chave];
         const status = document.getElementById("savedMemorialStatus");
+        const altitudes = document.getElementById("savedMemorialAltitude");
+        altitudes.hidden = true;
         const vertices = projeto?.pontos;
         if (!Array.isArray(vertices) || vertices.some((p) =>
           !Number.isFinite(p?.lat) || Math.abs(p.lat) > 90 ||
@@ -2735,6 +2779,13 @@
           await memorialWindow.landmensureOpenProject(gerarConteudoKML(vertices, nome), nome);
           if (frame.contentWindow === memorialWindow && select.value === chave) {
             status.textContent = "Levantamento aberto. Confira a área e gere o memorial abaixo.";
+            altitudes.querySelector("ul").replaceChildren(...vertices.map((point, index) => {
+              const row = document.createElement("li");
+              const altitude = Number.isFinite(point.altitude) ? textoAltitude(point) + " m" : "não registrada";
+              row.textContent = `${point.nome || nomePadrao(index)} — ${altitude}`;
+              return row;
+            }));
+            altitudes.hidden = false;
           }
         } catch (error) {
           if (frame.contentWindow === memorialWindow && select.value === chave) {
@@ -2843,9 +2894,9 @@
             let atual = lerLevantamentos();
             const nomes = new Set([...Object.keys(atual), ...Object.keys(d.levantamentos)]);
             if (d.rascunho?.pontos.length) nomes.add(limparTexto(d.rascunho.projeto, 120));
-            if (!temPro() && (nomes.size > 2 ||
-              Object.values(d.levantamentos).some(item => item.pontos.length > 10) || d.rascunho?.pontos.length > 10)) {
-              avisar("O backup excede o limite de 2 projetos ou 10 pontos por projeto do plano gratuito.");
+            if (!temPro() && (nomes.size > 1 ||
+              Object.values(d.levantamentos).some(item => item.pontos.length > 12) || d.rascunho?.pontos.length > 12)) {
+              avisar("O backup excede o limite de 1 projeto ou 12 pontos por projeto do plano gratuito.");
               exigirPro();
               return;
             }
@@ -2908,8 +2959,8 @@
         if (!nome) return avisar("Informe um nome válido para o levantamento.");
         document.getElementById("projeto").value = nome;
         let db = lerLevantamentos();
-        if (!temPro() && (pontos.length > 10 || (!Object.hasOwn(db, nome) && Object.keys(db).length >= 2))) {
-          avisar("O plano gratuito permite até 2 projetos e 10 pontos por projeto.");
+        if (!temPro() && (pontos.length > 12 || (!Object.hasOwn(db, nome) && Object.keys(db).length >= 1))) {
+          avisar("O plano gratuito permite até 1 projeto e 12 pontos por projeto.");
           exigirPro();
           return;
         }
@@ -2998,11 +3049,11 @@
         if (!exigirPro()) return;
         if (!pontos.length) return avisar("Nenhum ponto coletado.");
         let t =
-          "Vertice,Latitude,Longitude,UTM_X,UTM_Y,Zona,Distancia_proximo_m,Azimute_graus\n";
+          "Vertice,Latitude,Longitude,Altitude_elipsoidal_WGS84_m,Precisao_vertical_m,UTM_X,UTM_Y,Zona,Distancia_proximo_m,Azimute_graus\n";
         pontos.forEach((p, i) => {
           let u = converterUTM(p.lat, p.lng),
             n = pontos.length > 1 ? pontos[(i + 1) % pontos.length] : null;
-          t += `${p.nome || nomePadrao(i)},${p.lat},${p.lng},${u.x},${u.y},${u.zona},${n ? dist(p, n).toFixed(2) : ""},${n ? azimute(p, n).toFixed(2) : ""}\n`;
+          t += `${p.nome || nomePadrao(i)},${p.lat},${p.lng},${Number.isFinite(p.altitude) ? p.altitude : ""},${Number.isFinite(p.altitude) && Number.isFinite(p.verticalAccuracy) && p.verticalAccuracy >= 0 ? p.verticalAccuracy : ""},${u.x},${u.y},${u.zona},${n ? dist(p, n).toFixed(2) : ""},${n ? azimute(p, n).toFixed(2) : ""}\n`;
         });
         baixar("GPS_Landmensure_levantamento.csv", t, "text/csv");
       }
@@ -3019,16 +3070,21 @@
             })[c],
         );
       }
+      function altitudeKml(p) {
+        const data = dadosAltitude(p.altitude, p.verticalAccuracy);
+        if (data.altitude === undefined) return "";
+        return `<ExtendedData><Data name="altitude_elipsoidal_WGS84_m"><value>${data.altitude}</value></Data>${data.verticalAccuracy === undefined ? "" : `<Data name="precisao_vertical_m"><value>${data.verticalAccuracy}</value></Data>`}</ExtendedData>`;
+      }
       function gerarConteudoKML(vertices, nome) {
         let k = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${xml(nome)}</name>`;
         vertices.forEach(
           (p, i) =>
-            (k += `<Placemark><name>${xml(p.nome || nomePadrao(i))}</name><Point><coordinates>${p.lng},${p.lat},0</coordinates></Point></Placemark>`),
+            (k += `<Placemark><name>${xml(p.nome || nomePadrao(i))}</name>${altitudeKml(p)}<Point><coordinates>${p.lng},${p.lat}</coordinates></Point></Placemark>`),
         );
         if (vertices.length >= 3) {
           let c =
-            vertices.map((p) => `${p.lng},${p.lat},0`).join(" ") +
-            ` ${vertices[0].lng},${vertices[0].lat},0`;
+            vertices.map((p) => `${p.lng},${p.lat}`).join(" ") +
+            ` ${vertices[0].lng},${vertices[0].lat}`;
           k += `<Placemark><name>Polígono</name><Style><LineStyle><color>ff0045f4</color><width>3</width></LineStyle><PolyStyle><color>330045f4</color></PolyStyle></Style><Polygon><outerBoundaryIs><LinearRing><coordinates>${c}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>`;
         }
         return k + "</Document></kml>";
@@ -3038,8 +3094,8 @@
         if (!pontos.length) return avisar("Nenhum ponto coletado.");
         const features = pontos.map((p) => ({
           type: "Feature",
-          properties: { nome: p.nome },
-          geometry: { type: "Point", coordinates: [p.lng, p.lat] },
+          properties: { nome: p.nome, ...dadosAltitude(p.altitude, p.verticalAccuracy) },
+          geometry: { type: "Point", coordinates: Number.isFinite(p.altitude) ? [p.lng, p.lat, p.altitude] : [p.lng, p.lat] },
         }));
         const coordenadas = pontos.map((p) => [p.lng, p.lat]);
         if (coordenadas.length >= 3) features.push({
@@ -3073,9 +3129,9 @@
         pontos.forEach((p, i) => {
           let u = converterUTM(p.lat, p.lng),
             n = pontos[(i + 1) % pontos.length];
-          rows += `<tr><td>${escapeHtml(p.nome || nomePadrao(i))}</td><td>${p.lat.toFixed(8)}</td><td>${p.lng.toFixed(8)}</td><td>${u.x}</td><td>${u.y}</td><td>${u.zona}</td><td>${dist(p, n).toFixed(2)}</td><td>${azimute(p, n).toFixed(2)}°</td></tr>`;
+          rows += `<tr><td>${escapeHtml(p.nome || nomePadrao(i))}</td><td>${p.lat.toFixed(8)}</td><td>${p.lng.toFixed(8)}</td><td>${textoAltitude(p)}</td><td>${u.x}</td><td>${u.y}</td><td>${u.zona}</td><td>${dist(p, n).toFixed(2)}</td><td>${azimute(p, n).toFixed(2)}°</td></tr>`;
         });
-        let h = `<!doctype html><html><head><meta charset=utf-8><link rel="stylesheet" href="${new URL("field-theme.css", location.href).href}"><style>@page{size:A4;margin:14mm}body{font-family:Arial;background:var(--surface);color:var(--ink)}header{text-align:center;border-bottom:3px solid var(--navy);padding-bottom:8px}header img{width:280px;max-height:90px;object-fit:contain}h2{font-size:18px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid var(--line);padding:4px;text-align:center}.sum{margin:12px 0;font-size:12px}.satpage{display:none}.sat-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.sat-system{font-weight:800}.usedyes{color:var(--success);font-weight:800}.usedno{color:var(--muted)}.sat-table{min-width:650px}@media(min-width:720px){.sat-summary{grid-template-columns:repeat(4,1fr)}}</style></head><body><header><img src="${document.getElementById("brandLogo").src}"><h2>MEMORIAL DO LEVANTAMENTO</h2></header><p><b>Levantamento:</b> ${projeto}<br><b>Responsável/Cliente:</b> ${resp}<br><b>Data:</b> ${new Date().toLocaleString("pt-BR")}</p><div class=sum><b>Área:</b> ${areaEl().textContent} m² / ${document.getElementById("ha").textContent} ha &nbsp;&nbsp; <b>Perímetro:</b> ${document.getElementById("per").textContent} m</div><table><thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>UTM E</th><th>UTM N</th><th>Zona</th><th>Dist. (m)</th><th>Azimute</th><th>Frequência</th><th>Banda</th></tr></thead><tbody>${rows}</tbody></table><p style="font-size:10px;margin-top:16px">Coordenadas geográficas e UTM calculadas pelo GPS Landmensure. Conferir a precisão e os dados antes do uso técnico oficial.</p></body></html>`;
+        let h = `<!doctype html><html><head><meta charset=utf-8><link rel="stylesheet" href="${new URL("field-theme.css", location.href).href}"><style>@page{size:A4;margin:14mm}body{font-family:Arial;background:var(--surface);color:var(--ink)}header{text-align:center;border-bottom:3px solid var(--navy);padding-bottom:8px}header img{width:280px;max-height:90px;object-fit:contain}h2{font-size:18px}table{width:100%;border-collapse:collapse;font-size:9px}th,td{border:1px solid var(--line);padding:4px;text-align:center}.sum{margin:12px 0;font-size:12px}.satpage{display:none}.sat-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.sat-system{font-weight:800}.usedyes{color:var(--success);font-weight:800}.usedno{color:var(--muted)}.sat-table{min-width:650px}@media(min-width:720px){.sat-summary{grid-template-columns:repeat(4,1fr)}}</style></head><body><header><img src="${document.getElementById("brandLogo").src}"><h2>MEMORIAL DO LEVANTAMENTO</h2></header><p><b>Levantamento:</b> ${projeto}<br><b>Responsável/Cliente:</b> ${resp}<br><b>Data:</b> ${new Date().toLocaleString("pt-BR")}</p><div class=sum><b>Área:</b> ${areaEl().textContent} m² / ${document.getElementById("ha").textContent} ha &nbsp;&nbsp; <b>Perímetro:</b> ${document.getElementById("per").textContent} m</div><table><thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>Altitude WGS84 (m)</th><th>UTM E</th><th>UTM N</th><th>Zona</th><th>Dist. (m)</th><th>Azimute</th></tr></thead><tbody>${rows}</tbody></table><p style="font-size:10px;margin-top:16px">Coordenadas geográficas e UTM calculadas pelo GPS Landmensure. Conferir a precisão e os dados antes do uso técnico oficial.</p></body></html>`;
         if (window.Android && Android.printHtml)
           Android.printHtml("Memorial_GPS_Landmensure", h);
         else {
@@ -3101,7 +3157,10 @@
         document.getElementById("acc").textContent = "-";
         atualizarDados();
       }
-      window.addEventListener("landmensure:entitlement", () => {
+      window.addEventListener("landmensure:entitlement", (event) => {
+        if (event.detail.pro && event.detail.changed) {
+          ajustarModoColeta(document.getElementById("tempoColeta"), lerDefinicoes().coleta);
+        }
         document.querySelector('#settingMap option[value="sat"]').disabled = !temPro();
         if (!temPro() && baseAtual === "sat") alternarMapa();
         if (!temPro() && !document.getElementById("memorialPage").hidden) mostrarTela("gnss");
@@ -3133,7 +3192,7 @@
           if ("value" in field) field.value = "";
           else field.textContent = "";
         }
-        for (const id of ["acc", "liveLat", "liveLng", "liveAcc", "liveE", "liveN", "liveZona"]) {
+        for (const id of ["acc", "liveLat", "liveLng", "liveAltitude", "liveAcc", "liveE", "liveN", "liveZona"]) {
           document.getElementById(id).textContent = "–";
         }
         document.getElementById("lastCaptureQuality").hidden = true;
@@ -3152,6 +3211,8 @@
         atualizarProjetosMemorial();
         atualizarDados();
       });
+      document.getElementById("memorialFrame").addEventListener("load", observarAlturaMemorial);
+      observarAlturaMemorial();
       inicializarDefinicoes();
       ["projeto", "responsavel"].forEach((id) =>
         document.getElementById(id).addEventListener("input", salvarRascunho),

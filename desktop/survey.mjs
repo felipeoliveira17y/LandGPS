@@ -17,6 +17,9 @@ export function readSurvey(source, fallbackName = "Levantamento", date = null) {
       lng: p.lng,
       nome: String(p.nome || `P${i + 1}`).slice(0, 80),
       accuracy: Number.isFinite(p.accuracy) && p.accuracy >= 0 ? p.accuracy : null,
+      altitude: Number.isFinite(p.altitude) ? p.altitude : null,
+      verticalAccuracy: Number.isFinite(p.altitude) && Number.isFinite(p.verticalAccuracy) && p.verticalAccuracy >= 0
+        ? p.verticalAccuracy : null,
       samples: Number.isInteger(p.qualidade?.samples) && p.qualidade.samples >= 0
         ? p.qualidade.samples : null,
     })),
@@ -142,16 +145,22 @@ export function surveyCsv(survey) {
     const text = typeof value === "string" && /^[\s\p{Cf}]*[=+@-]|^[\t\r\n]/u.test(raw) ? "'" + raw : raw;
     return '"' + text.replaceAll('"', '""') + '"';
   };
-  const rows = survey.pontos.map(p => [p.nome, p.lat, p.lng, p.accuracy, p.samples]);
-  return [["Vértice", "Latitude", "Longitude", "Acurácia (m)", "Leituras aceitas"], ...rows]
+  const rows = survey.pontos.map(p => [p.nome, p.lat, p.lng, p.altitude, p.verticalAccuracy, p.accuracy, p.samples]);
+  return [["Vértice", "Latitude", "Longitude", "Altitude WGS84 (m)", "Precisão vertical (m)", "Acurácia (m)", "Leituras aceitas"], ...rows]
     .map(row => row.map(cell).join(";")).join("\r\n");
 }
 
 export function surveyGeoJson(survey) {
   const features = survey.pontos.map(point => ({
     type: "Feature",
-    properties: { nome: point.nome },
-    geometry: { type: "Point", coordinates: [point.lng, point.lat] },
+    properties: {
+      nome: point.nome,
+      ...(Number.isFinite(point.verticalAccuracy) ? { verticalAccuracy: point.verticalAccuracy } : {}),
+    },
+    geometry: {
+      type: "Point",
+      coordinates: Number.isFinite(point.altitude) ? [point.lng, point.lat, point.altitude] : [point.lng, point.lat],
+    },
   }));
   const coordinates = survey.pontos.map(point => [point.lng, point.lat]);
   if (coordinates.length >= 3) features.push({
@@ -164,13 +173,18 @@ export function surveyGeoJson(survey) {
 export function surveyKml(survey) {
   const escape = value => String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
-  const coord = p => `${p.lng},${p.lat},0`;
+  const coord = p => `${p.lng},${p.lat}`;
   const points = survey.pontos;
   const coordinates = points.map(coord);
   const geometry = points.length >= 3
     ? `<Polygon><outerBoundaryIs><LinearRing><coordinates>${[...coordinates, coordinates[0]].join(" ")}</coordinates></LinearRing></outerBoundaryIs></Polygon>`
     : points.length === 2 ? `<LineString><coordinates>${coordinates.join(" ")}</coordinates></LineString>` : "";
-  const marks = points.map(p => `<Placemark><name>${escape(p.nome)}</name><Point><coordinates>${coord(p)}</coordinates></Point></Placemark>`);
+  const marks = points.map(p => {
+    const data = Number.isFinite(p.altitude)
+      ? `<ExtendedData><Data name="altitude_elipsoidal_WGS84_m"><value>${p.altitude}</value></Data>${Number.isFinite(p.verticalAccuracy) ? `<Data name="precisao_vertical_m"><value>${p.verticalAccuracy}</value></Data>` : ""}</ExtendedData>`
+      : "";
+    return `<Placemark><name>${escape(p.nome)}</name>${data}<Point><coordinates>${coord(p)}</coordinates></Point></Placemark>`;
+  });
   const contour = geometry ? `<Placemark><name>Contorno</name>${geometry}</Placemark>` : "";
   return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${escape(survey.projeto)}</name>${contour}${marks.join("")}</Document></kml>`;
 }

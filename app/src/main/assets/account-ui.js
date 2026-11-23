@@ -205,18 +205,14 @@
   }
 
   function applyProRestrictions() {
-    const captureMode = byId("tempoColeta");
-    document.querySelectorAll('option[value="121"]').forEach((option) => {
-      option.disabled = !model.pro;
-      option.textContent = model.pro ? "Ponto ajustado • 120 s" : "Ponto ajustado • 120 s (Pro)";
-    });
-    if (!model.pro && captureMode?.value === "121") captureMode.value = "120";
-    document.querySelectorAll(".settings-choice").forEach((choice) => {
-      if (!choice.textContent.includes("Ponto ajustado")) return;
-      choice.disabled = !model.pro;
-      choice.setAttribute("aria-disabled", String(!model.pro));
-      choice.title = model.pro ? "" : "Disponível no plano Pro";
-    });
+    for (const id of ["tempoColeta", "settingCapture"]) {
+      const selector = byId(id);
+      for (const option of selector.querySelectorAll("[data-pro]")) {
+        option.disabled = !model.pro;
+        option.hidden = !model.pro;
+      }
+      if (!selector.value || selector.selectedOptions[0]?.disabled) selector.value = "15";
+    }
   }
 
   function announceAccountState() {
@@ -229,11 +225,14 @@
     model.signedIn = Boolean(event.signedIn);
     model.userId = model.signedIn ? event.userId || null : null;
     if (model.signedIn) model.email = event.email || "";
+    const previousPro = model.pro;
     model.pro = model.signedIn && Boolean(event.pro);
     document.documentElement.dataset.plan = model.pro ? "pro" : "free";
     applyProRestrictions();
     renderAccount();
-    window.dispatchEvent(new CustomEvent("landmensure:entitlement", { detail: { pro: model.pro } }));
+    window.dispatchEvent(new CustomEvent("landmensure:entitlement", {
+      detail: { pro: model.pro, changed: previousPro !== model.pro },
+    }));
     announceAccountState();
     if (!model.signedIn) openGate({ refreshState: false });
     else if (model.mode !== "reset") {
@@ -370,17 +369,14 @@
           </header>
           <p id="planActive" class="account-summary" hidden>Seu plano Pro está ativo.</p>
           ${direct ? "" : '<p class="auth-description">Os benefícios Pro ficam disponíveis quando uma assinatura ativa está vinculada à sua conta.</p>'}
-            <table class="plan-matrix">
-              <caption>Compare os planos</caption>
-              <thead><tr><th scope="col">Recurso</th><th scope="col">Gratuito</th><th scope="col">Pro</th></tr></thead>
-              <tbody>
-                <tr><th scope="row">Projetos e pontos</th><td>2 projetos, 10 pontos por projeto</td><td>Sem limite do plano</td></tr>
-                <tr><th scope="row">Mapa</th><td>Ruas</td><td>Ruas e satélite</td></tr>
-                <tr><th scope="row">Arquivos</th><td>Backup JSON</td><td>Backup, KML, CSV, GeoJSON e memorial completo</td></tr>
-                <tr><th scope="row">Painel Desktop</th><td>Prévia local</td><td>Sincronização e revisão completa</td></tr>
-                <tr><th scope="row">Ponto ajustado de 120 s</th><td>—</td><td>Incluído</td></tr>
-              </tbody>
-            </table>
+            <ul class="pro-benefits">
+              <li>Projetos e pontos sem limite do plano</li>
+              <li>Coleta por média de 30, 60 e 120 segundos e ponto ajustado</li>
+              <li>Mapa de satélite</li>
+              <li>Exportação KML, CSV e GeoJSON</li>
+              <li>Memorial descritivo completo</li>
+              <li>Sincronização e revisão no Painel Desktop</li>
+            </ul>
           ${direct ? `<form id="planOptions" class="plan-options">
             <p class="auth-description">Pague por cartão de crédito, Pix ou boleto bancário conforme disponibilidade no Stripe. O Pix inicial pode ser confirmado em instantes. No boleto, o Pro é liberado após a compensação.</p>
             <fieldset id="planPeriods" class="plan-periods">
@@ -463,18 +459,6 @@
     byId("planModal").addEventListener("click", (event) => {
       if (event.target === event.currentTarget) closePlans();
     });
-
-    const originalCapture = window.capturar;
-    if (typeof originalCapture === "function") {
-      window.capturar = function guardedCapture() {
-        if (byId("tempoColeta")?.value === "121" && !model.pro) {
-          openPlans();
-          setStatus("planStatus", "O Ponto Ajustado está disponível no Landmensure Pro.");
-          return;
-        }
-        return originalCapture();
-      };
-    }
 
     window.landmensureCloseTopOverlay = () => {
       if (byId("deleteAccountDialog").open) {

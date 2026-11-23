@@ -139,7 +139,7 @@
           <header><h2>Vértices e qualidade da coleta</h2><p class="muted">Confira a coleta onde a acurácia registrada supera 5 m ou há menos de 3 leituras aceitas.</p></header>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>Acurácia</th><th>Leituras aceitas</th><th>Conferência</th></tr></thead>
+              <thead><tr><th>Vértice</th><th>Latitude</th><th>Longitude</th><th>Altitude WGS84</th><th>Acurácia</th><th>Leituras aceitas</th><th>Conferência</th></tr></thead>
               <tbody id="vertices"></tbody>
             </table>
           </div>
@@ -180,16 +180,14 @@
   </dialog>
   <dialog id="plans-dialog" aria-labelledby="plans-title">
     <h2 id="plans-title">Landmensure Pro</h2>
-    <table class="plan-matrix">
-      <caption>Compare os planos</caption>
-      <thead><tr><th scope="col">Recurso</th><th scope="col">Gratuito</th><th scope="col">Pro</th></tr></thead>
-      <tbody>
-        <tr><th scope="row">Projetos e pontos</th><td>2 projetos, 10 pontos por projeto</td><td>Sem limite do plano</td></tr>
-        <tr><th scope="row">Mapa</th><td>Ruas</td><td>Ruas e satélite</td></tr>
-        <tr><th scope="row">Arquivos</th><td>Backup JSON</td><td>Backup, KML, CSV, GeoJSON e memorial completo</td></tr>
-        <tr><th scope="row">Painel Desktop</th><td>Prévia local</td><td>Sincronização e revisão completa</td></tr>
-      </tbody>
-    </table>
+    <ul class="pro-benefits">
+              <li>Projetos e pontos sem limite do plano</li>
+              <li>Coleta por média de 30, 60 e 120 segundos e ponto ajustado</li>
+              <li>Mapa de satélite</li>
+              <li>Exportação KML, CSV e GeoJSON</li>
+              <li>Memorial descritivo completo</li>
+              <li>Sincronização e revisão no Painel Desktop</li>
+            </ul>
     <p>Para assinar, abra <strong>Sua conta → Conhecer o Pro</strong> no aplicativo. O Stripe oferece cartão de crédito, Pix e boleto bancário conforme disponibilidade. O acesso é liberado após a confirmação do pagamento.</p>
     <form method="dialog"><button type="submit">Fechar</button></form>
   </dialog>

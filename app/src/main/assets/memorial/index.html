@@ -41,6 +41,17 @@
     @media(max-width:580px){.site-footer.gnss-social-bar{width:calc(100% - 28px);margin:14px auto 20px;padding:13px;border-radius:14px}.gnss-social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.gnss-social-links a{justify-content:flex-start;padding:8px 10px}.gnss-social-links .whatsapp{grid-column:1/-1}}
   </style>
   <link rel="stylesheet" href="../field-theme.css">
+  <style>
+    @media screen {
+      #memorialOutput {
+        max-height: none;
+        min-width: 0;
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: anywhere;
+      }
+    }
+  </style>
   <script>try{const theme=parent.document.documentElement.dataset.theme||'light';document.documentElement.dataset.theme=theme;localStorage.setItem('landmensure-theme',theme)}catch{}window.addEventListener('message',event=>{if(event.data?.type==='landmensure-theme'){const theme=event.data.theme==='dark'?'dark':'light';document.documentElement.dataset.theme=theme;try{localStorage.setItem('landmensure-theme',theme)}catch{}const toggle=document.getElementById('themeCheckbox');if(toggle)toggle.checked=theme==='light'}});</script>
 </head>
 
@@ -157,7 +168,7 @@
                 <div class="section-heading-main"><span class="section-index">03</span><div><h2 id="memorialTitulo">Memorial descritivo</h2></div></div>
                 <p>Confira os dados antes de imprimir.</p>
             </div>
-            <div id="memorialOutput" class="output-section is-status" role="status" aria-live="polite">Aguardando o carregamento do arquivo KML...</div>
+            <div id="memorialOutput" class="output-section is-status" role="status" aria-live="polite" tabindex="0" aria-label="Resultado do memorial descritivo">Aguardando o carregamento do arquivo KML...</div>
         </section>
     </main>
 

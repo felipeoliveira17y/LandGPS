@@ -158,15 +158,13 @@ button:focus-visible, select:focus-visible, summary:focus-visible {
 [data-theme="dark"] .leaflet-container .leaflet-bar a.leaflet-disabled { background: var(--soft); color: var(--muted); }
 [data-theme="dark"] .leaflet-container .leaflet-control-attribution a { color: var(--ink); text-decoration: underline; }
 
-.plan-matrix {
-  width: 100%;
-  border-collapse: collapse;
+.pro-benefits {
+  margin-block: .75rem 1rem;
+  padding-inline-start: 1.25rem;
   color: var(--ink);
-  font-size: .875rem;
+  overflow-wrap: anywhere;
 }
-.plan-matrix caption { text-align: start; font-weight: 700; padding-block: .5rem; }
-.plan-matrix :is(th, td) { border-bottom: 1px solid var(--line); padding: .45rem; text-align: start; }
-.plan-matrix thead { background: var(--soft); }
+.pro-benefits li + li { margin-block-start: .4rem; }
 
 @media screen and (prefers-reduced-motion: no-preference) {
   @keyframes gnssPulse {

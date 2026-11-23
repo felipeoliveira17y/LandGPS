@@ -409,7 +409,10 @@ class MainActivity : Activity() {
         @JavascriptInterface fun startLiveLocation() { runOnUiThread { ensurePermissionAndStart() } }
 
         @JavascriptInterface fun startOccupation(seconds: Int, adjusted: Boolean = false) { runOnUiThread {
-            if (seconds !in listOf(15,30,60,120)) { sendLocationError("Tempo de ocupação inválido."); return@runOnUiThread }
+            if (seconds !in listOf(15, 30, 60, 120) || (adjusted && seconds != 120)) {
+                sendLocationError("Tempo de ocupação inválido.")
+                return@runOnUiThread
+            }
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 pendingOccupationSeconds = seconds
                 pendingOccupationAdjusted = adjusted
@@ -537,7 +540,7 @@ class MainActivity : Activity() {
 
     private fun startRequestedOccupation(seconds: Int, adjusted: Boolean) {
         if (occupationActive || occupationChecking) return
-        if (adjusted) {
+        if (seconds > 15 || adjusted) {
             val generation = occupationGeneration
             occupationChecking = true
             accountScope.launch {
@@ -547,10 +550,10 @@ class MainActivity : Activity() {
                 if (generation != occupationGeneration) return@launch
                 occupationChecking = false
                 if (!pro) {
-                    sendLocationError("Ponto ajustado é exclusivo do Landmensure Pro. Escolha um plano para continuar.")
+                    sendLocationError("Coletas de 30, 60 ou 120 segundos e ponto ajustado exigem Landmensure Pro.")
                     return@launch
                 }
-                beginOccupation(seconds, adjusted = true)
+                beginOccupation(seconds, adjusted)
             }
         } else beginOccupation(seconds, adjusted = false)
     }
@@ -662,7 +665,7 @@ class MainActivity : Activity() {
         val sem = std / kotlin.math.sqrt(valid.size.toDouble())
         val r95 = 2.4477 * sem
         val reported=valid.map{it.accuracy.toDouble()}.sorted()[valid.size/2]
-        webView.evaluateJavascript("receiveOccupationResult($lat,$lon,$reported,${valid.size},$spread,$std,$sem,$r95,$lastHdop,$lastPdop)", null)
+        webView.evaluateJavascript("receiveOccupationResult($lat,$lon,$reported,${valid.size},$spread,$std,$sem,$r95,$lastHdop,$lastPdop,${altitudeArguments(valid)})", null)
     }
 
     private fun sendDopStatus() {
@@ -678,13 +681,26 @@ class MainActivity : Activity() {
         webView.evaluateJavascript("receiveOccupationProgress($elapsed,$total,$samples,$acc)", null)
     }
 
+    private fun altitudeArguments(samples: List<Location>): String {
+        val withAltitude = samples.filter { it.hasAltitude() && it.altitude.isFinite() }
+        if (withAltitude.isEmpty()) return "null,null"
+        val altitude = withAltitude.map { it.altitude }.average().takeIf { it.isFinite() }
+        // Use the worst accuracy reported for the readings used in the altitude average.
+        val verticalAccuracy = withAltitude.map {
+            it.verticalAccuracyMeters.takeIf { accuracy ->
+                it.hasVerticalAccuracy() && accuracy.isFinite() && accuracy >= 0f
+            }
+        }.let { if (it.all { accuracy -> accuracy != null }) it.filterNotNull().maxOrNull() else null }
+        return "$altitude,$verticalAccuracy"
+    }
+
     private fun deliverLiveLocation(location: Location) {
         val lat=location.latitude; val lng=location.longitude; val acc=location.accuracy.toDouble(); val t=location.time
-        webView.evaluateJavascript("receiveLiveLocation($lat,$lng,$acc,$t)", null)
+        webView.evaluateJavascript("receiveLiveLocation($lat,$lng,$acc,$t,${altitudeArguments(listOf(location))})", null)
     }
     private fun deliverCapturedLocation(location: Location) {
         val lat=location.latitude; val lng=location.longitude; val acc=location.accuracy.toDouble(); val t=location.time
-        webView.evaluateJavascript("receiveCapturedLocation($lat,$lng,$acc,$t)", null)
+        webView.evaluateJavascript("receiveCapturedLocation($lat,$lng,$acc,$t,${altitudeArguments(listOf(location))})", null)
     }
     private fun sendLiveStatus(message: String) { val s=js(message); webView.evaluateJavascript("receiveLiveStatus('$s')", null) }
     private fun sendLocationError(message: String) { val s=js(message); webView.evaluateJavascript("receiveNativeLocationError('$s')", null) }

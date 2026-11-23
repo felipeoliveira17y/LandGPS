@@ -115,6 +115,7 @@ dialog {
   padding: 20px; color: var(--ink); background: var(--surface);
 }
 dialog::backdrop { background: var(--overlay); }
+#plans-dialog { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .dialog-mark { display: block; object-fit: contain; }
 #recovery-dialog .dialog-mark { margin-bottom: 11px; }
 .export-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 15px 0; }

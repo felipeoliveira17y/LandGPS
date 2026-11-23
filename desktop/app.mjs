@@ -283,6 +283,8 @@ function showSurvey() {
     vertexCell.append(vertexButton);
     tr.append(vertexCell);
     for (const value of [p.lat.toFixed(7), p.lng.toFixed(7),
+      p.altitude === null ? "Não registrada"
+        : `${number(p.altitude, 1)}${p.verticalAccuracy === null ? "" : " ± " + number(p.verticalAccuracy, 1)} m`,
       p.accuracy === null ? "Não registrada" : `${number(p.accuracy)} m`,
       p.samples ?? "Não registradas", quality[index].join(" · ") || "—"]) {
       const td = document.createElement("td");
@@ -742,7 +744,7 @@ $("backup").addEventListener("change", async event => {
     const { surveys: imported, rejected } = readBackup(JSON.parse(await file.text()));
     if (generation !== requestGeneration) return;
     if (!imported.length) throw new Error("O backup não contém levantamentos válidos.");
-    if (!hasPro && (imported.length > 2 || imported.some(survey => survey.pontos.length > 10))) {
+    if (!hasPro && (imported.length > 1 || imported.some(survey => survey.pontos.length > 12))) {
       if (!await verifyPro() || generation !== requestGeneration) return;
     }
     switchSource("local", imported, rejected ? `${rejected} levantamento(s) com dados inválidos ficaram de fora.` : "");
